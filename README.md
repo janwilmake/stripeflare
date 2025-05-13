@@ -11,4 +11,5 @@ Middleware to add Stripe Payments to a Cloudflare Worker and have users keep tra
 3. Create a payment link at https://dashboard.stripe.com/payment-links and use this in your frontend, but ensure to append `?client_reference_id=${client_reference_id}` taken from the `StripeUser`
 4. Now you're ready to receive payments and perform logic based on the user details and balance.
 
-For the implementation, see `middleware.ts`. For the template, see `template.ts` and `index.html`.
+For the implementation, see `middleware.ts`. For the template, see `template.ts` and `template.html`.
+`
