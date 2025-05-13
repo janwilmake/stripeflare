@@ -1,3 +1,4 @@
+// To use this template, replace "./middleware" by "stripeflare" and add stripeflare to your dependencies (npm i stripeflare)
 import { Env, stripeBalanceMiddleware, type StripeUser } from "./middleware";
 export { DORM } from "./middleware";
 //@ts-ignore
