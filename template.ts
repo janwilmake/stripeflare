@@ -1,7 +1,7 @@
 import { Env, stripeBalanceMiddleware, type StripeUser } from "./middleware";
 export { DORM } from "./middleware";
 //@ts-ignore
-import indexHtml from "./index.html";
+import template from "./template.html";
 
 interface User extends StripeUser {
   /** Additional properties */
@@ -54,7 +54,7 @@ export default {
     headers.append("Content-Type", "text/html");
 
     const { balance, email, client_reference_id } = result.user;
-    const modifiedHtml = indexHtml.replace(
+    const modifiedHtml = template.replace(
       "</head>",
       `<script>window.data = ${JSON.stringify({
         balance,
