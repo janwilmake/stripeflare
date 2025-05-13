@@ -135,6 +135,8 @@ export default {
         payment_link,
         customer_details,
         currency,
+        // the reference to the client provided through ?client_reference_id
+        client_reference_id,
       } = event.data.object;
 
       if (payment_link !== env.STRIPE_PAYMENT_LINK_ID) {
