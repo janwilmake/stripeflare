@@ -1,4 +1,6 @@
 STRIPE_WEBHOOK_SIGNING_SECRET=
 STRIPE_SECRET=
 STRIPE_PUBLISHABLE_KEY=
-STRIPE_PAYMENT_LINK_ID=plink_
+DB_SECRET=
+# Set to true in localhost to not use secure cookies
+SKIP_LOGIN=true

@@ -4,28 +4,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Payments in Cloudflare Workers</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script async src="https://js.stripe.com/v3/buy-button.js"></script>
+    <title>Payment Page</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .payment-button {
+            background: #635bff;
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .payment-button:hover {
+            background: #4b41e0;
+        }
+    </style>
 </head>
 
-<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
-    <div class="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
-        <h1 class="text-3xl font-bold mb-8 text-gray-800">Simple Payments in Cloudflare Workers</h1>
+<body>
+    <div id="client_reference_id"></div>
 
-        <div class="mb-8">
-            <stripe-buy-button buy-button-id="buy_btn_1REsM3HdjTpW3q7ir46YIEPf"
-                publishable-key="pk_live_51OByVPHdjTpW3q7iqVMf1htAJOQ9If61YZYQlDMc2vhx0XSgqu4Tpfpb6t4pRFJDWhJ7ZqdwMsnQn9RtDuztnnQA00NorRRKLl">
-            </stripe-buy-button>
-        </div>
+    <div id="balance"></div>
 
-    </div>
-    <div class="absolute top-4 left-4">
-        <iframe
-            src="https://ghbtns.com/github-btn.html?user=janwilmake&repo=stripeflare&type=star&count=true&size=large"
-            frameborder="0" scrolling="0" width="170" height="30" title="GitHub">
-        </iframe>
-    </div>
+    <a id="paymentLink" target="_blank" href="#" class="payment-button">Pay with Stripe</a>
+
+    <script>
+
+
+        // Check for user_data cookie and extract client_reference_id
+        if (window.data) {
+
+            const { client_reference_id, balance, email, name } = window.data;
+
+            if (client_reference_id) {
+
+                // Construct the payment link with client_reference_id
+                const paymentUrl = `https://buy.stripe.com/fZe9Do2HB0DHeX06UP?client_reference_id=${client_reference_id}`;
+                document.getElementById('paymentLink').href = paymentUrl;
+                document.getElementById('balance').innerText = 'Balance: $' + balance / 100;
+                document.getElementById('client_reference_id').innerText = 'Client ID: ' + client_reference_id;
+
+
+            } else {
+                alert('Error: No client reference ID found');
+            }
+
+        }
+    </script>
 </body>
 
 </html>
