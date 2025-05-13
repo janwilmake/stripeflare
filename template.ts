@@ -1,0 +1,67 @@
+import { Env, stripeBalanceMiddleware, type StripeUser } from "./middleware";
+export { DORM } from "./middleware";
+//@ts-ignore
+import indexHtml from "./index.html";
+
+interface User extends StripeUser {
+  /** Additional properties */
+  // twitter_handle: string | null;
+}
+
+export const migrations = {
+  // can add any other info here
+  1: [
+    `CREATE TABLE users (
+      access_token TEXT PRIMARY KEY,
+      balance INTEGER DEFAULT 0,
+      email TEXT,
+      client_reference_id TEXT
+    )`,
+    `CREATE INDEX idx_users_balance ON users(balance)`,
+    `CREATE INDEX idx_users_email ON users(email)`,
+    `CREATE INDEX idx_users_client_reference_id ON users(client_reference_id)`,
+  ],
+  //2: add column twitter handle
+};
+
+export default {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
+    const result = await stripeBalanceMiddleware<User>(
+      request,
+      env,
+      ctx,
+      migrations,
+    );
+
+    // If middleware returned a response (webhook or db api), return it directly
+    if (result.response) {
+      return result.response;
+    }
+
+    if (!result.user) {
+      return new Response("Somethign went wrong", {
+        status: 404,
+        headers: result.headers,
+      });
+    }
+
+    // Otherwise, inject user data and return HTML
+    const headers = result.headers || new Headers();
+    headers.append("Content-Type", "text/html");
+
+    const { balance, email, client_reference_id } = result.user;
+    const modifiedHtml = indexHtml.replace(
+      "</head>",
+      `<script>window.data = ${JSON.stringify({
+        balance,
+        email,
+        client_reference_id,
+      })};</script></head>`,
+    );
+    return new Response(modifiedHtml, { headers });
+  },
+};

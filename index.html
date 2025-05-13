@@ -42,6 +42,8 @@
 <body>
     <div id="client_reference_id"></div>
 
+    <div id="email"></div>
+
     <div id="balance"></div>
 
     <a id="paymentLink" target="_blank" href="#" class="payment-button">Pay with Stripe</a>
@@ -55,14 +57,12 @@
             const { client_reference_id, balance, email, name } = window.data;
 
             if (client_reference_id) {
-
                 // Construct the payment link with client_reference_id
                 const paymentUrl = `https://buy.stripe.com/fZe9Do2HB0DHeX06UP?client_reference_id=${client_reference_id}`;
                 document.getElementById('paymentLink').href = paymentUrl;
                 document.getElementById('balance').innerText = 'Balance: $' + balance / 100;
+                document.getElementById('email').innerText = 'Email: ' + email || "Unavailable";
                 document.getElementById('client_reference_id').innerText = 'Client ID: ' + client_reference_id;
-
-
             } else {
                 alert('Error: No client reference ID found');
             }

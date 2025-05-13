@@ -10,6 +10,7 @@ Please, make me a backend using dorm and the principles from the stripe example 
 - we check for cookies if they exists and find belonging user based on `access_token` cookie. if not, randomly generate a new `access_token` and `client_reference_id` and create user for it with email `null` and balance `0`.
 - return html file for the current route (support only `/` for now leading to index, but put them in a route object. import html files via import filename from "./filename.html";).
 - it checks the stripe `checkout.session.completed` webhook event, and if there's a `client_reference_id` there, look it up in `aggregate` to find the `access_token`. then create a client for that `access_token` with mirrorName `aggregate`. add to `balance` using `amount_total` and set `email`.
+- do not check for the payment link; checking on the client_reference_id is enough.
 
 Needed state:
 
