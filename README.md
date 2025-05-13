@@ -12,4 +12,3 @@ Middleware to add Stripe Payments to a Cloudflare Worker and have users keep tra
 4. Now you're ready to receive payments and perform logic based on the user details and balance.
 
 For the implementation, see `middleware.ts`. For the template, see `template.ts` and `template.html`.
-`
