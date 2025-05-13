@@ -1,0 +1,26 @@
+{
+  "$schema": "https://contextjson.com/schema",
+  "attribution": "https://github.com/janwilmake/contextjson",
+  "context": {
+    "guide": {
+      "summary": "Working example/template on how to use this",
+      "pathPatterns": ["template.ts", "template.html"],
+      "prompt": "Please create a new cloudflare typescript worker that uses stripeflare for monetisation with the following state and functionality: ..."
+    },
+    "source": {
+      "summary": "Entire implementation of the package",
+      "pathPatterns": ["middleware.ts", "package.json"],
+      "prompt": "Can you tell me more about the security considerations of using this package?"
+    },
+    "create-guide": {
+      "summary": "Create a customized guide for a particular usecase",
+      "pathPatterns": ["README.md", "template.ts"],
+      "prompt": "Please create a new template for stripeflare similar to the provided template, for the following usecase: ..."
+    },
+    "general": {
+      "summary": "General information",
+      "pathPatterns": ["README.md", "LICENSE.md", "middleware.ts"],
+      "prompt": "What are the limitations?"
+    }
+  }
+}

@@ -13,12 +13,12 @@ export interface Env {
   SKIP_LOGIN?: string;
 }
 
-export interface StripeUser extends Records {
+export type StripeUser = {
   access_token: string;
   balance: number;
   email: string | null;
   client_reference_id: string;
-}
+};
 
 type Migrations = { [version: number]: string[] };
 
