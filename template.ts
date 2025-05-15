@@ -17,11 +17,15 @@ export const migrations = {
       balance INTEGER DEFAULT 0,
       name TEXT,
       email TEXT,
+      verified_email TEXT,
+      card_fingerprint TEXT,
       client_reference_id TEXT
     )`,
     `CREATE INDEX idx_users_balance ON users(balance)`,
     `CREATE INDEX idx_users_name ON users(name)`,
     `CREATE INDEX idx_users_email ON users(email)`,
+    `CREATE INDEX idx_users_verified_email ON users(verified_email)`,
+    `CREATE INDEX idx_users_card_fingerprint ON users(card_fingerprint)`,
     `CREATE INDEX idx_users_client_reference_id ON users(client_reference_id)`,
   ],
 };

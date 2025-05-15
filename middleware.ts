@@ -77,7 +77,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
    * Your database migrations. Required user-table columns (preferably all indexed): `CREATE TABLE users ( access_token TEXT PRIMARY KEY, balance INTEGER DEFAULT 0, email TEXT, name TEXT, client_reference_id )`.
    */
   migrations: Migrations,
-  version: string = "v2",
+  version: string = "v-verified_email",
 ): Promise<MiddlewareResult<T>> {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -194,14 +194,67 @@ async function handleStripeWebhook(
       });
     }
 
-    console.log("DETAILS", {
-      client_reference_id,
-      access_token,
-      customer,
-      customer_creation,
-      customer_email,
-      customer_details,
-    });
+    console.log({ charge_id: session });
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(
+      session.payment_intent as string,
+    );
+
+    // const charge = await stripe.charges.retrieve('')
+    const { payment_method_details } = await stripe.charges.retrieve(
+      paymentIntent.latest_charge as string,
+    );
+
+    const card_fingerprint = payment_method_details?.card?.fingerprint;
+
+    const verified_email =
+      payment_method_details?.type === "link"
+        ? customer_details.email
+        : undefined;
+
+    if (verified_email || card_fingerprint) {
+      const aggregateClient = createClient({
+        doNamespace: env.DORM_NAMESPACE,
+        version,
+        migrations,
+        ctx,
+        name: "aggregate",
+      });
+
+      const userFromEmail = verified_email
+        ? (
+            await aggregateClient
+              .exec<StripeUser>(
+                "SELECT access_token FROM users WHERE verified_email = ?",
+                verified_email,
+              )
+              .toArray()
+          )[0]
+        : undefined;
+      const userFromFingerprint = card_fingerprint
+        ? (
+            await aggregateClient
+              .exec<StripeUser>(
+                "SELECT access_token FROM users WHERE card_fingerprint = ?",
+                card_fingerprint,
+              )
+              .toArray()
+          )[0]
+        : undefined;
+
+      const already_access_token =
+        userFromEmail?.access_token || userFromFingerprint?.access_token;
+
+      console.log({ verified_email, card_fingerprint, already_access_token });
+      if (already_access_token) {
+        console.warn(
+          "There was another user found with this email and/or card fingerprint. We could supply additional logic here to tranfer the funds already present on that user to the new access token.",
+        );
+        /**Proposed logic:
+         - if the user at access_token had no previous payments, remove the other user and place it at this user.
+         - if the user at access_token did have previous payments, do not remove the other user, and do not tranfer anything. we can assume the user paid for someone else.*/
+      }
+    }
 
     // Create client for specific user with mirror to aggregate
     const userClient = createClient({
@@ -250,10 +303,12 @@ async function handleStripeWebhook(
       // User doesn't exist, create new user
       await userClient
         .exec(
-          "INSERT INTO users (access_token, balance, email, name, client_reference_id) VALUES (?, ?, ?, ?, ?)",
+          "INSERT INTO users (access_token, balance, email, verified_email, card_fingerprint, name, client_reference_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
           access_token,
           amount_total,
           customer_details.email,
+          verified_email || null,
+          card_fingerprint || null,
           customer_details.name || null,
           client_reference_id,
         )
