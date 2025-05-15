@@ -200,6 +200,7 @@ async function handleStripeWebhook(
       customer,
       customer_creation,
       customer_email,
+      customer_details,
     });
 
     // Create client for specific user with mirror to aggregate

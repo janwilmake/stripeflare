@@ -11,3 +11,5 @@ Revamped this into a middleware that keeps user balance in a "dorm" (with user-b
 Changed logic to only create user after payment. Will still create empty DOs (to check) and it will run migrations there and submit that it did that, so still need to find a way to clean this up nicely, possibly at the `remote-sql-cursor` level?
 
 https://x.com/janwilmake/status/1922903746658341049
+
+Found that payment links normally set `customer_creation` to `if_required` which will only create customers for subscriptions. When set to `always` we can track customers across payments, allowing to connect them to their previous account after payment.
