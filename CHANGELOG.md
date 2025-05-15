@@ -5,3 +5,7 @@ Made an initial POC that uses the stripe-webhook in a Cloudflare worker (now at 
 # May 13
 
 Revamped this into a middleware that keeps user balance in a "dorm" (with user-based tiny dbs + aggregate) and tied to a browser cookie.
+
+# May 15
+
+Changed logic to only create user after payment. Will still create empty DOs (to check) and it will run migrations there and submit that it did that, so still need to find a way to clean this up nicely, possibly at the `remote-sql-cursor` level?

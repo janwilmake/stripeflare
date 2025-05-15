@@ -3,7 +3,8 @@
   "version": "0.0.2",
   "main": "middleware.ts",
   "files": [
-    "middleware.ts"
+    "middleware.ts",
+    "encrypt-decrypt-js.js"
   ],
   "dependencies": {
     "dormroom": "^1.0.0-next.20",

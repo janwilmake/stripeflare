@@ -1,5 +1,6 @@
 import { Stripe } from "stripe";
 import { createClient, DORM, type Records } from "dormroom";
+import { decryptToken, encryptToken } from "./encypt-decrypt-js";
 
 // Export DORM for it to be accessible
 export { DORM };
@@ -14,6 +15,7 @@ export interface Env {
 }
 
 export type StripeUser = {
+  name: string | null;
   access_token: string;
   balance: number;
   email: string | null;
@@ -27,12 +29,6 @@ export interface MiddlewareResult<T extends StripeUser> {
   user?: T;
   headers?: Headers;
 }
-
-// Migrations
-
-// Helper functions
-const generateAccessToken = () => crypto.randomUUID();
-const generateClientReferenceId = () => crypto.randomUUID();
 
 const parseCookies = (cookieHeader: string): Record<string, string> => {
   const cookies: Record<string, string> = {};
@@ -78,9 +74,10 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
   env: Env,
   ctx: ExecutionContext,
   /**
-   * Your database migrations. Required user-table columns (preferably all indexed): `CREATE TABLE users ( access_token TEXT PRIMARY KEY, balance INTEGER DEFAULT 0, email TEXT, client_reference_id )`.
+   * Your database migrations. Required user-table columns (preferably all indexed): `CREATE TABLE users ( access_token TEXT PRIMARY KEY, balance INTEGER DEFAULT 0, email TEXT, name TEXT, client_reference_id )`.
    */
   migrations: Migrations,
+  version: string = "v2",
 ): Promise<MiddlewareResult<T>> {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -92,13 +89,20 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
       env,
       ctx,
       migrations,
+      version,
     );
     return { response: webhookResponse };
   }
 
   // Handle database API access
   if (path.startsWith("/aggregate/")) {
-    const dbResponse = await handleDatabaseAPI(request, env, ctx, migrations);
+    const dbResponse = await handleDatabaseAPI(
+      request,
+      env,
+      ctx,
+      migrations,
+      version,
+    );
     if (dbResponse) {
       return { response: dbResponse };
     }
@@ -113,6 +117,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     url,
     headers,
     migrations,
+    version,
   );
 
   return { user, headers };
@@ -123,6 +128,7 @@ async function handleStripeWebhook(
   env: Env,
   ctx: ExecutionContext,
   migrations: Migrations,
+  version: string,
 ): Promise<Response> {
   if (!request.body) {
     return new Response(JSON.stringify({ error: "No body" }), {
@@ -172,48 +178,64 @@ async function handleStripeWebhook(
       return new Response("Missing required data", { status: 400 });
     }
 
-    // Find user in aggregate by client_reference_id
-    const aggregateClient = createClient({
-      doNamespace: env.DORM_NAMESPACE,
-      version: "v1",
-      migrations,
-      ctx,
-      name: "aggregate",
-    });
-
-    const user = await aggregateClient
-      .exec<StripeUser>(
-        "SELECT * FROM users WHERE client_reference_id = ?",
-        client_reference_id,
-      )
-      .one()
-      .catch(() => null);
-
-    if (!user) {
-      return new Response("User not found", { status: 404 });
-    }
+    const access_token = await decryptToken(client_reference_id, env.DB_SECRET);
 
     // Create client for specific user with mirror to aggregate
     const userClient = createClient({
       doNamespace: env.DORM_NAMESPACE,
-      version: "v1",
+      version,
       migrations,
       ctx,
-      name: user.access_token,
+      name: access_token,
       mirrorName: "aggregate",
     });
 
-    // Update user balance and email
-    const update = await userClient
-      .exec(
-        "UPDATE users SET balance = balance + ?, email = ? WHERE access_token = ?",
-        amount_total,
-        customer_details.email,
-        user.access_token,
+    // Check if user exists
+    const existingUser = await userClient
+      .exec<StripeUser>(
+        "SELECT * FROM users WHERE access_token = ?",
+        access_token,
       )
-      .toArray();
+      .one();
 
-    console.log("PAYMENT PROCESSED", { user, update });
+    if (existingUser) {
+      // User exists, update balance and email, and optionally name
+      if (existingUser.name) {
+        // User already has a name, don't update it
+        await userClient
+          .exec(
+            "UPDATE users SET balance = balance + ?, email = ? WHERE access_token = ?",
+            amount_total,
+            customer_details.email,
+            access_token,
+          )
+          .toArray();
+      } else {
+        // User doesn't have a name, update it if available
+        await userClient
+          .exec(
+            "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
+            amount_total,
+            customer_details.email,
+            customer_details.name || null,
+            access_token,
+          )
+          .toArray();
+      }
+    } else {
+      // User doesn't exist, create new user
+      await userClient
+        .exec(
+          "INSERT INTO users (access_token, balance, email, name, client_reference_id) VALUES (?, ?, ?, ?, ?)",
+          access_token,
+          amount_total,
+          customer_details.email,
+          customer_details.name || null,
+          client_reference_id,
+        )
+        .toArray();
+    }
+
     return new Response("Payment processed successfully", { status: 200 });
   }
 
@@ -225,10 +247,11 @@ async function handleDatabaseAPI(
   env: Env,
   ctx: ExecutionContext,
   migrations: Migrations,
+  version: string,
 ): Promise<Response | undefined> {
   const aggregateClient = createClient({
     doNamespace: env.DORM_NAMESPACE,
-    version: "v1",
+    version,
     migrations,
     ctx,
     name: "aggregate",
@@ -249,6 +272,7 @@ async function handleUserSession<T extends StripeUser>(
   url: URL,
   headers: Headers,
   migrations: Migrations,
+  version: string,
 ): Promise<{ user: T }> {
   const cookieHeader = request.headers.get("Cookie");
   const cookies = cookieHeader ? parseCookies(cookieHeader) : {};
@@ -258,9 +282,10 @@ async function handleUserSession<T extends StripeUser>(
 
   // Try to get existing user
   if (accessToken) {
+    // NB: this takes some ms for cold starts because a global lookup is done and new db is created for the accessToken, and happens for every user. Therefore there will be tons of tiny DOs without data, which we should clean up later.
     const userClient = createClient({
       doNamespace: env.DORM_NAMESPACE,
-      version: "v1",
+      version,
       migrations,
       ctx,
       name: accessToken,
@@ -276,29 +301,10 @@ async function handleUserSession<T extends StripeUser>(
     }
   }
 
-  // Create new user if needed
   if (!user) {
-    accessToken = generateAccessToken();
-    const clientReferenceId = generateClientReferenceId();
-
-    const userClient = createClient({
-      doNamespace: env.DORM_NAMESPACE,
-      version: "v1",
-      migrations,
-      ctx,
-      name: accessToken,
-      mirrorName: "aggregate",
-    });
-
-    await userClient
-      .exec(
-        "INSERT INTO users (access_token, balance, email, client_reference_id) VALUES (?, ?, ?, ?)",
-        accessToken,
-        0,
-        null,
-        clientReferenceId,
-      )
-      .toArray();
+    // Provide user with clientReferenceId without creating it
+    accessToken = crypto.randomUUID();
+    const clientReferenceId = await encryptToken(accessToken, env.DB_SECRET);
 
     user = {
       access_token: accessToken,

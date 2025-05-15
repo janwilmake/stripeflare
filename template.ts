@@ -15,14 +15,15 @@ export const migrations = {
     `CREATE TABLE users (
       access_token TEXT PRIMARY KEY,
       balance INTEGER DEFAULT 0,
+      name TEXT,
       email TEXT,
       client_reference_id TEXT
     )`,
     `CREATE INDEX idx_users_balance ON users(balance)`,
+    `CREATE INDEX idx_users_name ON users(name)`,
     `CREATE INDEX idx_users_email ON users(email)`,
     `CREATE INDEX idx_users_client_reference_id ON users(client_reference_id)`,
   ],
-  //2: add column twitter handle
 };
 
 export default {
