@@ -60,7 +60,8 @@
 
             if (client_reference_id) {
                 // Construct the payment link with client_reference_id
-                const paymentUrl = `https://buy.stripe.com/fZe9Do2HB0DHeX06UP?client_reference_id=${client_reference_id}`;
+                // const paymentUrl = `https://buy.stripe.com/fZe9Do2HB0DHeX06UP?client_reference_id=${client_reference_id}`;
+                const paymentUrl = `https://buy.stripe.com/cN2bLw81V725eX04MJ?client_reference_id=${client_reference_id}`
                 document.getElementById('paymentLink').href = paymentUrl;
                 document.getElementById('balance').innerText = 'Balance: $' + balance / 100;
                 document.getElementById('email').innerText = 'Email: ' + email || "Unavailable";
