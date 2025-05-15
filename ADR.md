@@ -10,7 +10,8 @@ Post planned may 17, 11 am (saturday)
 
 TODO:
 
-- if payment is done from access token that has no user yet, create user with 0, and set column `verified_user_access_token`. balance should to to user with that `access_token` instead
+- ✅ create new version with `verified_user_access_token` column on users
+- if payment is done from access token that has no user yet, create user with 0, and set column `verified_user_access_token`. balance should to to user with that `access_token` instead.
 - in `handleUserSession` when found user has `verified_user_access_token`, change `access_token` to there.
 
 🎉 Now I can login from anywhere by logging in with stripe!!!
