@@ -9,3 +9,5 @@ Revamped this into a middleware that keeps user balance in a "dorm" (with user-b
 # May 15
 
 Changed logic to only create user after payment. Will still create empty DOs (to check) and it will run migrations there and submit that it did that, so still need to find a way to clean this up nicely, possibly at the `remote-sql-cursor` level?
+
+https://x.com/janwilmake/status/1922903746658341049

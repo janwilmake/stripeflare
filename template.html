@@ -64,7 +64,7 @@
                 document.getElementById('paymentLink').href = paymentUrl;
                 document.getElementById('balance').innerText = 'Balance: $' + balance / 100;
                 document.getElementById('email').innerText = 'Email: ' + email || "Unavailable";
-                document.getElementById('name').innerText = 'Name: ' + email || "Unavailable";
+                document.getElementById('name').innerText = 'Name: ' + name || "Unavailable";
                 document.getElementById('client_reference_id').innerText = 'Client ID: ' + client_reference_id;
             } else {
                 alert('Error: No client reference ID found');
