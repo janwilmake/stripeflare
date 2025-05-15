@@ -18,6 +18,7 @@ export const migrations = {
       name TEXT,
       email TEXT,
       verified_email TEXT,
+      verified_user_access_token TEXT,
       card_fingerprint TEXT,
       client_reference_id TEXT
     )`,

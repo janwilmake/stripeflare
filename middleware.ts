@@ -77,7 +77,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
    * Your database migrations. Required user-table columns (preferably all indexed): `CREATE TABLE users ( access_token TEXT PRIMARY KEY, balance INTEGER DEFAULT 0, email TEXT, name TEXT, client_reference_id )`.
    */
   migrations: Migrations,
-  version: string = "v-verified_email",
+  version: string = "v-verified_user_access_token",
 ): Promise<MiddlewareResult<T>> {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -194,8 +194,6 @@ async function handleStripeWebhook(
       });
     }
 
-    console.log({ charge_id: session });
-
     const paymentIntent = await stripe.paymentIntents.retrieve(
       session.payment_intent as string,
     );
@@ -245,11 +243,18 @@ async function handleStripeWebhook(
       const already_access_token =
         userFromEmail?.access_token || userFromFingerprint?.access_token;
 
-      console.log({ verified_email, card_fingerprint, already_access_token });
       if (already_access_token) {
-        console.warn(
-          "There was another user found with this email and/or card fingerprint. We could supply additional logic here to tranfer the funds already present on that user to the new access token.",
-        );
+        if (already_access_token !== access_token) {
+          console.warn(
+            "There was another user found with this email and/or card fingerprint. We could supply additional logic here to tranfer the funds already present on that user to the new access token.",
+            { verified_email, card_fingerprint },
+          );
+        } else {
+          console.log(
+            "Also found the same user through email/fingerprint, but it's the same user!",
+            { verified_email, card_fingerprint },
+          );
+        }
         /**Proposed logic:
          - if the user at access_token had no previous payments, remove the other user and place it at this user.
          - if the user at access_token did have previous payments, do not remove the other user, and do not tranfer anything. we can assume the user paid for someone else.*/
@@ -386,7 +391,6 @@ async function handleUserSession<T extends StripeUser>(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     if (!accessToken || !accessToken.match(uuidGeneralRegex)) {
-      console.log("Creating new access token");
       accessToken = crypto.randomUUID();
     }
     const clientReferenceId = await encryptToken(accessToken, env.DB_SECRET);

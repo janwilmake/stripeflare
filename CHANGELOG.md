@@ -12,4 +12,4 @@ Changed logic to only create user after payment. Will still create empty DOs (to
 
 https://x.com/janwilmake/status/1922903746658341049
 
-Found that payment links normally set `customer_creation` to `if_required` which will only create customers for subscriptions. When set to `always` we can track customers across payments, allowing to connect them to their previous account after payment.
+Also, found a way use stripeflare to login by payment. A unauthenticated user can login into their account by making a small payment. See ADR
