@@ -172,15 +172,35 @@ async function handleStripeWebhook(
       return new Response("Payment not completed", { status: 400 });
     }
 
-    const { client_reference_id, customer_details, amount_total } = session;
+    const {
+      client_reference_id,
+      customer_details,
+      amount_total,
+      customer,
+      customer_creation,
+      customer_email,
+    } = session;
 
     if (!client_reference_id || !customer_details?.email) {
       return new Response("Missing required data", { status: 400 });
     }
 
-    console.log({ client_reference_id });
-    const access_token = await decryptToken(client_reference_id, env.DB_SECRET);
-    console.log({ access_token });
+    let access_token: string | undefined = undefined;
+    try {
+      access_token = await decryptToken(client_reference_id, env.DB_SECRET);
+    } catch (e) {
+      return new Response("Could not decrypt client_reference_id", {
+        status: 400,
+      });
+    }
+
+    console.log("DETAILS", {
+      client_reference_id,
+      access_token,
+      customer,
+      customer_creation,
+      customer_email,
+    });
 
     // Create client for specific user with mirror to aggregate
     const userClient = createClient({
