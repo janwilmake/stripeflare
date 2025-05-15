@@ -178,7 +178,9 @@ async function handleStripeWebhook(
       return new Response("Missing required data", { status: 400 });
     }
 
+    console.log({ client_reference_id });
     const access_token = await decryptToken(client_reference_id, env.DB_SECRET);
+    console.log({ access_token });
 
     // Create client for specific user with mirror to aggregate
     const userClient = createClient({
@@ -196,7 +198,8 @@ async function handleStripeWebhook(
         "SELECT * FROM users WHERE access_token = ?",
         access_token,
       )
-      .one();
+      .one()
+      .catch(() => null);
 
     if (existingUser) {
       // User exists, update balance and email, and optionally name
