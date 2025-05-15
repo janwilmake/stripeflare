@@ -303,7 +303,13 @@ async function handleUserSession<T extends StripeUser>(
 
   if (!user) {
     // Provide user with clientReferenceId without creating it
-    accessToken = crypto.randomUUID();
+    const uuidGeneralRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (!accessToken || !accessToken.match(uuidGeneralRegex)) {
+      console.log("Creating new access token");
+      accessToken = crypto.randomUUID();
+    }
     const clientReferenceId = await encryptToken(accessToken, env.DB_SECRET);
 
     user = {
