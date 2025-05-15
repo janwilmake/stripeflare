@@ -55,14 +55,10 @@ export default {
     const headers = result.headers || new Headers();
     headers.append("Content-Type", "text/html");
 
-    const { balance, email, client_reference_id } = result.user;
+    const { access_token, ...rest } = result.user;
     const modifiedHtml = template.replace(
       "</head>",
-      `<script>window.data = ${JSON.stringify({
-        balance,
-        email,
-        client_reference_id,
-      })};</script></head>`,
+      `<script>window.data = ${JSON.stringify(rest)};</script></head>`,
     );
     return new Response(modifiedHtml, { headers });
   },
