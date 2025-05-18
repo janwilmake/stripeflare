@@ -144,7 +144,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     const update = userClient.exec(
       allowNegativeBalance
         ? "UPDATE users SET balance = balance - ? WHERE access_token = ?"
-        : "UPDATE users SET balance = balance - ? WHERE access_token = ? and balance > ?",
+        : "UPDATE users SET balance = balance - ? WHERE access_token = ? and balance >= ?",
       amountCent,
       user.access_token,
       amountCent,
