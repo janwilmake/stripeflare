@@ -18,3 +18,7 @@ Middleware to add Stripe Payments to a Cloudflare Worker and have users keep tra
 4. Now you're ready to receive payments and perform logic based on the user details and balance.
 
 For the implementation, see `middleware.ts`. For the template, see `template.ts` and `template.html`.
+
+# Good to know:
+
+- https://github.com/janwilmake/dorm is a dependency. When you want to interact with the same database to charge a user, ensure to use the returned `userClient` fromthe middleware (if available) or create a client yourself. The DB name access_token, the mirrorName should be "aggregate"

@@ -1,9 +1,9 @@
 import { Stripe } from "stripe";
-import { createClient, DORM, DORMClient, type Records } from "dormroom";
+import { createClient, DORM, DORMClient } from "dormroom";
 import { decryptToken, encryptToken } from "./encrypt-decrypt-js";
 
 // Export DORM for it to be accessible
-export { DORM };
+export { DORM, createClient };
 
 export interface Env {
   DORM_NAMESPACE: DurableObjectNamespace<DORM>;
@@ -17,18 +17,30 @@ export interface Env {
 export type StripeUser = {
   name: string | null;
   access_token: string;
+  verified_user_access_token: string | null;
   balance: number;
   email: string | null;
   client_reference_id: string;
+  card_fingerprint: string | null;
+  verified_email: string | null;
 };
 
 type Migrations = { [version: number]: string[] };
 
 export interface MiddlewareResult<T extends StripeUser> {
   response?: Response;
-  user?: T;
-  headers?: Headers;
-  userClient?: DORMClient;
+  session?: {
+    user: T;
+    headers: Headers;
+    userClient?: DORMClient;
+    charge: (
+      amountCent: number,
+      allowNegativeBalance: boolean,
+    ) => Promise<{
+      charged: boolean;
+      message: string;
+    }>;
+  };
 }
 
 const parseCookies = (cookieHeader: string): Record<string, string> => {
@@ -78,7 +90,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
    * Your database migrations. Required user-table columns (preferably all indexed): `CREATE TABLE users ( access_token TEXT PRIMARY KEY, balance INTEGER DEFAULT 0, email TEXT, name TEXT, client_reference_id )`.
    */
   migrations: Migrations,
-  version: string = "v-0.0.8",
+  version: string,
 ): Promise<MiddlewareResult<T>> {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -121,7 +133,33 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     version,
   );
 
-  return { user, headers, userClient };
+  const charge = async (amountCent: number, allowNegativeBalance: boolean) => {
+    if (!userClient || !user.access_token) {
+      return {
+        charged: false,
+        message: "User is not signed up yet and cannot be charged",
+      };
+    }
+
+    const update = userClient.exec(
+      allowNegativeBalance
+        ? "UPDATE users SET balance = balance - ? WHERE access_token = ?"
+        : "UPDATE users SET balance = balance - ? WHERE access_token = ? and balance > ?",
+      amountCent,
+      user.access_token,
+      amountCent,
+    );
+
+    await update.toArray();
+    const { rowsWritten } = update;
+    if (rowsWritten === 0) {
+      return { charged: false, message: "User balance too low" };
+    }
+
+    return { charged: true, message: "Successfully charged" };
+  };
+
+  return { session: { user, headers, userClient, charge } };
 }
 
 async function handleStripeWebhook(

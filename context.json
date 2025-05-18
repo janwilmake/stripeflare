@@ -9,7 +9,11 @@
     },
     "source": {
       "summary": "Entire implementation of the package",
-      "pathPatterns": ["middleware.ts", "package.json"],
+      "pathPatterns": [
+        "middleware.ts",
+        "package.json",
+        "encrypt-decrypt-js.js"
+      ],
       "prompt": "Can you tell me more about the security considerations of using this package?"
     },
     "create-guide": {

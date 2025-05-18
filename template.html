@@ -4,73 +4,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Page</title>
+    <title>Stripeflare Demo</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f5f5f5;
+        h1 {
+            color: #635bff;
         }
 
         .payment-button {
             background: #635bff;
             color: white;
             border: none;
-            padding: 16px 32px;
-            border-radius: 8px;
-            font-size: 18px;
-            font-weight: 500;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
             cursor: pointer;
-            transition: background 0.2s;
             text-decoration: none;
             display: inline-block;
+            margin: 10px 0;
         }
 
-        .payment-button:hover {
-            background: #4b41e0;
+        .toggle-privacy {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .blurred-value {
+            filter: blur(5px);
+            user-select: none;
+        }
+
+        .info-container {
+            margin: 5px 0;
+        }
+
+        .info-label {
+            font-weight: bold;
+        }
+
+        .message-container {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #635bff;
         }
     </style>
 </head>
 
 <body>
+    <h1>Stripeflare Demo</h1>
     <div id="client_reference_id"></div>
-
-    <div id="email"></div>
-
-    <div id="name"></div>
-
+    <div class="info-container">
+        <span class="info-label">Email: </span>
+        <span id="email-value"></span>
+    </div>
+    <div class="info-container">
+        <span class="info-label">Name: </span>
+        <span id="name-value"></span>
+    </div>
     <div id="balance"></div>
-
+    <div id="speed"></div>
+    <div id="charged"></div>
+    <div id="message-container" class="message-container" style="display: none;">
+        <span class="info-label">Message: </span>
+        <span id="message-value"></span>
+    </div>
     <a id="paymentLink" target="_blank" href="#" class="payment-button">Pay with Stripe</a>
-
+    <p>After paying, every request will charge $0.01 without limit to showcase speed</p>
+    <button id="togglePrivacy" class="toggle-privacy">Toggle Privacy</button>
     <script>
+        // Initialize privacy setting from localStorage or default to false
+        let isPrivacyEnabled = JSON.parse(localStorage.getItem('privacyEnabled')) || false;
 
+        // Function to update UI based on privacy setting
+        function updatePrivacyUI() {
+            const emailValue = document.getElementById('email-value');
+            const nameValue = document.getElementById('name-value');
+            if (isPrivacyEnabled) {
+                emailValue.classList.add('blurred-value');
+                nameValue.classList.add('blurred-value');
+            } else {
+                emailValue.classList.remove('blurred-value');
+                nameValue.classList.remove('blurred-value');
+            }
+        }
 
-        // Check for user_data cookie and extract client_reference_id
+        // Toggle privacy button event listener
+        document.getElementById('togglePrivacy').addEventListener('click', function () {
+            isPrivacyEnabled = !isPrivacyEnabled;
+            localStorage.setItem('privacyEnabled', JSON.stringify(isPrivacyEnabled));
+            updatePrivacyUI();
+        });
+
+        // Check for user_data and extract client_reference_id
         if (window.data) {
-
-            const { client_reference_id, balance, email, name } = window.data;
-
+            const { client_reference_id, balance, email, name, speed, charged, message } = window.data;
             if (client_reference_id) {
                 // Construct the payment link with client_reference_id
                 const paymentUrl = `https://buy.stripe.com/fZe9Do2HB0DHeX06UP?client_reference_id=${client_reference_id}`;
                 // const paymentUrl = `https://buy.stripe.com/cN2bLw81V725eX04MJ?client_reference_id=${client_reference_id}`
                 document.getElementById('paymentLink').href = paymentUrl;
                 document.getElementById('balance').innerText = 'Balance: $' + balance / 100;
-                document.getElementById('email').innerText = 'Email: ' + email || "Unavailable";
-                document.getElementById('name').innerText = 'Name: ' + name || "Unavailable";
+                document.getElementById('email-value').innerText = email || "Unavailable";
+                document.getElementById('name-value').innerText = name || "Unavailable";
+                document.getElementById('speed').innerText = 'Speed: ' + speed + "ms";
                 document.getElementById('client_reference_id').innerText = 'Client ID: ' + client_reference_id;
+
+                // Display charged amount if available
+                if (charged !== undefined) {
+                    document.getElementById('charged').innerText = 'Charged: $' + charged / 100;
+                }
+
+                // Display message if available
+                if (message) {
+                    document.getElementById('message-value').innerText = message;
+                    document.getElementById('message-container').style.display = 'block';
+                }
+
+                // Apply privacy settings
+                updatePrivacyUI();
             } else {
                 alert('Error: No client reference ID found');
             }
-
         }
     </script>
 </body>

@@ -1,6 +1,12 @@
 // To use this template, replace "./middleware" by "stripeflare" and add stripeflare to your dependencies (npm i stripeflare)
-import { Env, stripeBalanceMiddleware, type StripeUser } from "./middleware";
+import {
+  createClient,
+  Env,
+  stripeBalanceMiddleware,
+  type StripeUser,
+} from "./middleware";
 export { DORM } from "./middleware";
+
 //@ts-ignore
 import template from "./template.html";
 
@@ -42,6 +48,8 @@ export default {
       env,
       ctx,
       migrations,
+      // changing this will link to a fully new db
+      "0.0.10",
     );
 
     // If middleware returned a response (webhook or db api), return it directly
@@ -49,21 +57,78 @@ export default {
       return result.response;
     }
 
-    if (!result.user) {
-      return new Response("Somethign went wrong", {
-        status: 404,
-        headers: result.headers,
-      });
+    if (!result.session) {
+      return new Response("Somethign went wrong", { status: 404 });
     }
 
+    let user: User | null = result.session.user;
+
+    const t = Date.now();
+
+    const { charged, message } = await result.session.charge(1, false);
+
+    // We can also directly connect with the DB through dorm client
+    // const client = createClient({
+    //   doNamespace: env.DORM_NAMESPACE,
+    //   ctx,
+    //   migrations,
+    //   mirrorName: "aggregate",
+    //   name: result.session.user.access_token,
+    //   //NB: ensure to specify the same version!
+    //   version: "0.0.10",
+    // });
+
+    // let paidUser = await client
+    //   .exec<User>(
+    //     "SELECT * FROM users WHERE access_token = ?",
+    //     result.session.user.access_token,
+    //   )
+    //   .one()
+    //   .catch(() => null);
+
+    // if (paidUser) {
+    //   const update = client.exec(
+    //     "UPDATE users SET balance = balance - 1 WHERE access_token=?",
+    //     result.session.user.access_token,
+    //   );
+
+    //   await update.toArray();
+    //   const { rowsRead, rowsWritten } = update;
+
+    //   console.log("User has been charged one cent", { rowsRead, rowsWritten });
+
+    //   const updatedUser = await client
+    //     .exec<StripeUser>(
+    //       "SELECT * FROM users WHERE access_token=?",
+    //       result.session.user.access_token,
+    //     )
+    //     .one()
+    //     .catch(() => null);
+    //   if (!updatedUser) {
+    //     return new Response("Couldn't find updated user user", { status: 500 });
+    //   }
+    //   user = updatedUser;
+    // } else {
+    //   console.log(
+    //     "This user could not be found, which means they have not made a payment. Change logic accordingly",
+    //   );
+    // }
+
     // Otherwise, inject user data and return HTML
-    const headers = result.headers || new Headers();
+    const headers = result.session.headers || new Headers();
     headers.append("Content-Type", "text/html");
 
-    const { access_token, ...rest } = result.user;
+    const { access_token, verified_user_access_token, ...rest } = user;
+
+    const speed = Date.now() - t;
     const modifiedHtml = template.replace(
       "</head>",
-      `<script>window.data = ${JSON.stringify(rest)};</script></head>`,
+      `<script>window.data = ${JSON.stringify({
+        ...rest,
+        speed,
+        charged,
+        message,
+      })};</script></head>`,
     );
     return new Response(modifiedHtml, { headers });
   },
