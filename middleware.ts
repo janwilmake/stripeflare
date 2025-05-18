@@ -78,7 +78,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
    * Your database migrations. Required user-table columns (preferably all indexed): `CREATE TABLE users ( access_token TEXT PRIMARY KEY, balance INTEGER DEFAULT 0, email TEXT, name TEXT, client_reference_id )`.
    */
   migrations: Migrations,
-  version: string = "v-verified_user_access_token",
+  version: string = "v-0.0.8",
 ): Promise<MiddlewareResult<T>> {
   const url = new URL(request.url);
   const path = url.pathname;
