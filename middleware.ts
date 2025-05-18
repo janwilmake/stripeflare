@@ -1,6 +1,6 @@
 import { Stripe } from "stripe";
 import { createClient, DORM, DORMClient, type Records } from "dormroom";
-import { decryptToken, encryptToken } from "./encypt-decrypt-js";
+import { decryptToken, encryptToken } from "./encrypt-decrypt-js";
 
 // Export DORM for it to be accessible
 export { DORM };
@@ -383,6 +383,8 @@ async function handleUserSession<T extends StripeUser>(
         .exec<T>("SELECT * FROM users WHERE access_token = ?", accessToken)
         .one();
     } catch {
+      userClient = undefined;
+
       // User not found, will create new one
     }
   }
