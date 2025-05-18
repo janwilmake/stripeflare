@@ -1,5 +1,5 @@
 import { Stripe } from "stripe";
-import { createClient, DORM, type Records } from "dormroom";
+import { createClient, DORM, DORMClient, type Records } from "dormroom";
 import { decryptToken, encryptToken } from "./encypt-decrypt-js";
 
 // Export DORM for it to be accessible
@@ -28,6 +28,7 @@ export interface MiddlewareResult<T extends StripeUser> {
   response?: Response;
   user?: T;
   headers?: Headers;
+  userClient?: DORMClient;
 }
 
 const parseCookies = (cookieHeader: string): Record<string, string> => {
@@ -110,7 +111,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
 
   // Handle user session
   const headers = new Headers();
-  const { user } = await handleUserSession<T>(
+  const { user, userClient } = await handleUserSession<T>(
     request,
     env,
     ctx,
@@ -120,7 +121,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     version,
   );
 
-  return { user, headers };
+  return { user, headers, userClient };
 }
 
 async function handleStripeWebhook(
@@ -357,17 +358,18 @@ async function handleUserSession<T extends StripeUser>(
   headers: Headers,
   migrations: Migrations,
   version: string,
-): Promise<{ user: T }> {
+): Promise<{ user: T; userClient: DORMClient | undefined }> {
   const cookieHeader = request.headers.get("Cookie");
   const cookies = cookieHeader ? parseCookies(cookieHeader) : {};
 
   let accessToken = cookies.access_token;
   let user: T | null = null;
+  let userClient: DORMClient | undefined = undefined;
 
   // Try to get existing user
   if (accessToken) {
     // NB: this takes some ms for cold starts because a global lookup is done and new db is created for the accessToken, and happens for every user. Therefore there will be tons of tiny DOs without data, which we should clean up later.
-    const userClient = createClient({
+    userClient = createClient({
       doNamespace: env.DORM_NAMESPACE,
       version,
       migrations,
@@ -414,5 +416,5 @@ async function handleUserSession<T extends StripeUser>(
     );
   }
 
-  return { user };
+  return { user, userClient };
 }
