@@ -292,7 +292,7 @@
                 document.getElementById('email-value').innerText = email || "Unavailable";
                 document.getElementById('name-value').innerText = name || "Unavailable";
                 document.getElementById('speed').innerHTML = '<i class="fas fa-tachometer-alt"></i> ' + speed + "ms";
-                document.getElementById('client_reference_id').innerText = client_reference_id;
+                document.getElementById('client_reference_id').innerText = client_reference_id.slice(0, 20) + "...";
 
                 // Display charged amount if available
                 if (charged !== undefined) {
