@@ -1,3 +1,15 @@
+# Encrypthon secret rotation, access tokens in db
+
+problem 1: we might loose the original DB_SECRET or might be required to rotate it incase it gets compromised
+
+It's used to generate `client_reference_id` from provided `access_token` and to re-retrieve the access_token based on client_reference_id. Since the DB_SECRET must be able to be rotated, the client_reference_id is always regenerated based on access token. The time it lives in stripe is very short, as long as the stripe session lasts, so it may end up in a few failed payments when rotating the secret.
+
+This is solved now by keeping the access_token as the only source of truth for the `client_reference_id` and updating it when it is not the same anymore.
+
+problem 2: we don't want to use `access_tokens` as names or store them into the db directly (users table primary key is now `access_token`). instead, we should have another secret (or the same, twice) and store the encrypted value as `access_token_hash` and use that as the primary key, instead.
+
+![](security.drawio.png)
+
 # Login by payment
 
 Goal is to identify buyers after a payment link payment (without them being logged in). My Learnings:

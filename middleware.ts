@@ -417,9 +417,27 @@ async function handleUserSession<T extends StripeUser>(
     });
 
     try {
+      const client_reference_id = await encryptToken(
+        accessToken,
+        env.DB_SECRET,
+      );
+
       user = await userClient
         .exec<T>("SELECT * FROM users WHERE access_token = ?", accessToken)
         .one();
+
+      if (user.client_reference_id !== client_reference_id) {
+        // ensure to overwrite client_reference_id incase we have a new DB_SECRET
+        user.client_reference_id = client_reference_id;
+
+        await userClient
+          .exec<T>(
+            "UPDATE users SET client_reference_id = ? WHERE access_token = ?",
+            client_reference_id,
+            accessToken,
+          )
+          .toArray();
+      }
     } catch {
       userClient = undefined;
 
@@ -435,13 +453,13 @@ async function handleUserSession<T extends StripeUser>(
     if (!accessToken || !accessToken.match(uuidGeneralRegex)) {
       accessToken = crypto.randomUUID();
     }
-    const clientReferenceId = await encryptToken(accessToken, env.DB_SECRET);
+    const client_reference_id = await encryptToken(accessToken, env.DB_SECRET);
 
     user = {
       access_token: accessToken,
       balance: 0,
       email: null,
-      client_reference_id: clientReferenceId,
+      client_reference_id,
     } as T;
 
     // Set cookie
