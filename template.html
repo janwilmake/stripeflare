@@ -5,31 +5,100 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stripeflare Demo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #635bff;
+            --primary-dark: #5147e6;
+            --bg-light: #f8f9fc;
+            --text-dark: #2a2a2a;
+            --text-light: #6b7280;
+            --border-color: #e5e7eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+            margin-bottom: 25px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 28px;
+            margin-right: 12px;
+            color: var(--primary);
+        }
+
         h1 {
-            color: #635bff;
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 24px;
+            margin: 0;
         }
 
-        .payment-button {
-            background: #635bff;
-            color: white;
-            border: none;
-            padding: 12px 24px;
+        .info-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 15px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        .info-value {
+            font-weight: 500;
+            font-size: 15px;
+        }
+
+        .highlighted {
+            background-color: rgba(99, 91, 255, 0.08);
+            padding: 8px 12px;
             border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-            margin: 10px 0;
-        }
-
-        .toggle-privacy {
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
+            font-weight: 600;
         }
 
         .blurred-value {
@@ -37,45 +106,149 @@
             user-select: none;
         }
 
-        .info-container {
-            margin: 5px 0;
+        .payment-button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s ease;
+            width: 100%;
+            text-align: center;
+            margin: 20px 0 15px;
         }
 
-        .info-label {
-            font-weight: bold;
+        .payment-button:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .toggle-privacy {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-light);
+            transition: all 0.2s ease;
+        }
+
+        .toggle-privacy:hover {
+            background: #f3f4f6;
         }
 
         .message-container {
             margin-top: 15px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            border-left: 3px solid #635bff;
+            padding: 15px;
+            background-color: rgba(99, 91, 255, 0.08);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .payment-note {
+            font-size: 14px;
+            color: var(--text-light);
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .badge-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .badge-primary {
+            background-color: rgba(99, 91, 255, 0.1);
+            color: var(--primary);
+        }
+
+        .badge-warning {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+
+        .badge i {
+            margin-right: 4px;
+            font-size: 11px;
         }
     </style>
 </head>
 
 <body>
-    <h1>Stripeflare Demo</h1>
-    <div id="client_reference_id"></div>
-    <div class="info-container">
-        <span class="info-label">Email: </span>
-        <span id="email-value"></span>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <div class="logo"><i class="fas fa-bolt"></i></div>
+                <h1>Stripeflare Demo</h1>
+            </div>
+
+            <div class="info-container">
+                <div class="info-row">
+                    <span class="info-label">Client ID</span>
+                    <span id="client_reference_id" class="info-value highlighted"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email</span>
+                    <span id="email-value" class="info-value"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Name</span>
+                    <span id="name-value" class="info-value"></span>
+                </div>
+            </div>
+
+            <div class="info-container">
+                <div class="info-row">
+                    <span class="info-label">Balance</span>
+                    <span id="balance" class="info-value badge badge-primary"><i class="fas fa-wallet"></i></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Speed</span>
+                    <span id="speed" class="info-value badge badge-success"><i class="fas fa-tachometer-alt"></i></span>
+                </div>
+                <div class="info-row" id="charged-row" style="display: none;">
+                    <span class="info-label">Charged</span>
+                    <span id="charged" class="info-value badge badge-warning"><i class="fas fa-credit-card"></i></span>
+                </div>
+            </div>
+
+            <div id="message-container" class="message-container" style="display: none;">
+                <span class="info-label">Message</span>
+                <p id="message-value" style="margin-top: 5px;"></p>
+            </div>
+
+            <a id="paymentLink" target="_blank" href="#" class="payment-button">
+                <i class="fab fa-stripe" style="margin-right: 10px;"></i> Pay with Stripe
+            </a>
+
+            <p class="payment-note">After paying, every request will charge $0.01 without limit to showcase speed</p>
+
+            <button id="togglePrivacy" class="toggle-privacy">
+                <i class="fas fa-eye-slash"></i> <span id="privacy-text">Toggle Privacy</span>
+            </button>
+        </div>
     </div>
-    <div class="info-container">
-        <span class="info-label">Name: </span>
-        <span id="name-value"></span>
-    </div>
-    <div id="balance"></div>
-    <div id="speed"></div>
-    <div id="charged"></div>
-    <div id="message-container" class="message-container" style="display: none;">
-        <span class="info-label">Message: </span>
-        <span id="message-value"></span>
-    </div>
-    <a id="paymentLink" target="_blank" href="#" class="payment-button">Pay with Stripe</a>
-    <p>After paying, every request will charge $0.01 without limit to showcase speed</p>
-    <button id="togglePrivacy" class="toggle-privacy">Toggle Privacy</button>
+
     <script>
         // Initialize privacy setting from localStorage or default to false
         let isPrivacyEnabled = JSON.parse(localStorage.getItem('privacyEnabled')) || false;
@@ -84,12 +257,19 @@
         function updatePrivacyUI() {
             const emailValue = document.getElementById('email-value');
             const nameValue = document.getElementById('name-value');
+            const privacyIcon = document.querySelector('#togglePrivacy i');
+            const privacyText = document.getElementById('privacy-text');
+
             if (isPrivacyEnabled) {
                 emailValue.classList.add('blurred-value');
                 nameValue.classList.add('blurred-value');
+                privacyIcon.className = 'fas fa-eye';
+                privacyText.textContent = 'Show Information';
             } else {
                 emailValue.classList.remove('blurred-value');
                 nameValue.classList.remove('blurred-value');
+                privacyIcon.className = 'fas fa-eye-slash';
+                privacyText.textContent = 'Hide Information';
             }
         }
 
@@ -108,15 +288,16 @@
                 const paymentUrl = `https://buy.stripe.com/fZe9Do2HB0DHeX06UP?client_reference_id=${client_reference_id}`;
                 // const paymentUrl = `https://buy.stripe.com/cN2bLw81V725eX04MJ?client_reference_id=${client_reference_id}`
                 document.getElementById('paymentLink').href = paymentUrl;
-                document.getElementById('balance').innerText = 'Balance: $' + balance / 100;
+                document.getElementById('balance').innerHTML = '<i class="fas fa-wallet"></i> $' + balance / 100;
                 document.getElementById('email-value').innerText = email || "Unavailable";
                 document.getElementById('name-value').innerText = name || "Unavailable";
-                document.getElementById('speed').innerText = 'Speed: ' + speed + "ms";
-                document.getElementById('client_reference_id').innerText = 'Client ID: ' + client_reference_id;
+                document.getElementById('speed').innerHTML = '<i class="fas fa-tachometer-alt"></i> ' + speed + "ms";
+                document.getElementById('client_reference_id').innerText = client_reference_id;
 
                 // Display charged amount if available
                 if (charged !== undefined) {
-                    document.getElementById('charged').innerText = 'Charged: $' + charged / 100;
+                    document.getElementById('charged').innerHTML = '<i class="fas fa-credit-card"></i> $' + charged / 100;
+                    document.getElementById('charged-row').style.display = 'flex';
                 }
 
                 // Display message if available
