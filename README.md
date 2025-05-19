@@ -4,6 +4,9 @@
 
 Middleware to add Stripe Payments to a Cloudflare Worker and have users keep track of a balance in your own database, without requiring third-party authentication (Just Stripe Payment)! It is a massive improvement upon [cloudflare sponsorware](https://github.com/janwilmake/cloudflare-sponsorware) which I made before as it dramatically reduces complexity while improving upon UX and DX.
 
+> [!IMPORTANT]
+> This is still a research-project with limitations. See [ADR](ADR.md) for details.
+
 # Features
 
 - **Performant**: Creates a DB for each user while also mirroring it into an aggregate db (powered by [Durable Objects](https://developers.cloudflare.com/durable-objects/) and [DORM](https://getdorm.com)), resulting in lightning-fast worker requests with user-balance.

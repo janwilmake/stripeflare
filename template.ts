@@ -115,7 +115,7 @@ export default {
     // }
 
     // Otherwise, inject user data and return HTML
-    const headers = result.session.headers || new Headers();
+    const headers = new Headers(result.session.headers || {});
     headers.append("Content-Type", "text/html");
 
     const { access_token, verified_user_access_token, ...rest } = user;

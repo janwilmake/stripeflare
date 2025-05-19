@@ -31,7 +31,7 @@ export interface MiddlewareResult<T extends StripeUser> {
   response?: Response;
   session?: {
     user: T;
-    headers: Headers;
+    headers: { [key: string]: string };
     userClient?: DORMClient;
     charge: (
       amountCent: number,
@@ -122,13 +122,11 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
   }
 
   // Handle user session
-  const headers = new Headers();
-  const { user, userClient } = await handleUserSession<T>(
+  const { user, userClient, headers } = await handleUserSession<T>(
     request,
     env,
     ctx,
     url,
-    headers,
     migrations,
     version,
   );
@@ -233,6 +231,48 @@ async function handleStripeWebhook(
       });
     }
 
+    const aggregateClient = createClient({
+      doNamespace: env.DORM_NAMESPACE,
+      version,
+      migrations,
+      ctx,
+      name: "aggregate",
+    });
+
+    // check if we already have a user with this details
+    const userFromAccessToken = await aggregateClient
+      .exec<StripeUser>(
+        "SELECT * FROM users WHERE access_token = ?",
+        access_token,
+      )
+      .one()
+      .catch(() => null);
+
+    if (userFromAccessToken) {
+      // existing user found at this access_token, just add balance
+      const userClient = createClient({
+        doNamespace: env.DORM_NAMESPACE,
+        version,
+        migrations,
+        ctx,
+        name: access_token,
+        mirrorName: "aggregate",
+      });
+
+      await userClient
+        .exec(
+          "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
+          amount_total,
+          customer_details.email,
+          customer_details.name || null,
+          access_token,
+        )
+        .toArray();
+
+      return new Response("Payment processed successfully", { status: 200 });
+    }
+
+    // no exisitng user. Check which user we need to insert it into:
     const paymentIntent = await stripe.paymentIntents.retrieve(
       session.payment_intent as string,
     );
@@ -249,102 +289,42 @@ async function handleStripeWebhook(
         ? customer_details.email
         : undefined;
 
-    if (verified_email || card_fingerprint) {
-      const aggregateClient = createClient({
+    const userFromEmail = verified_email
+      ? (
+          await aggregateClient
+            .exec<StripeUser>(
+              "SELECT access_token FROM users WHERE verified_email = ?",
+              verified_email,
+            )
+            .toArray()
+        )[0]
+      : undefined;
+
+    const userFromFingerprint = card_fingerprint
+      ? (
+          await aggregateClient
+            .exec<StripeUser>(
+              "SELECT access_token FROM users WHERE card_fingerprint = ?",
+              card_fingerprint,
+            )
+            .toArray()
+        )[0]
+      : undefined;
+
+    const verified_user_access_token =
+      userFromEmail?.access_token || userFromFingerprint?.access_token;
+
+    if (!verified_user_access_token) {
+      // user did not exist and there was no alternate access token found. Let's create the user under the provided access token!
+      const userClient = createClient({
         doNamespace: env.DORM_NAMESPACE,
         version,
         migrations,
         ctx,
-        name: "aggregate",
+        name: access_token,
+        mirrorName: "aggregate",
       });
 
-      const userFromEmail = verified_email
-        ? (
-            await aggregateClient
-              .exec<StripeUser>(
-                "SELECT access_token FROM users WHERE verified_email = ?",
-                verified_email,
-              )
-              .toArray()
-          )[0]
-        : undefined;
-      const userFromFingerprint = card_fingerprint
-        ? (
-            await aggregateClient
-              .exec<StripeUser>(
-                "SELECT access_token FROM users WHERE card_fingerprint = ?",
-                card_fingerprint,
-              )
-              .toArray()
-          )[0]
-        : undefined;
-
-      const already_access_token =
-        userFromEmail?.access_token || userFromFingerprint?.access_token;
-
-      if (already_access_token) {
-        if (already_access_token !== access_token) {
-          console.warn(
-            "There was another user found with this email and/or card fingerprint. We could supply additional logic here to tranfer the funds already present on that user to the new access token.",
-            { verified_email, card_fingerprint },
-          );
-        } else {
-          console.log(
-            "Also found the same user through email/fingerprint, but it's the same user!",
-            { verified_email, card_fingerprint },
-          );
-        }
-        /**Proposed logic:
-         - if the user at access_token had no previous payments, remove the other user and place it at this user.
-         - if the user at access_token did have previous payments, do not remove the other user, and do not tranfer anything. we can assume the user paid for someone else.*/
-      }
-    }
-
-    // Create client for specific user with mirror to aggregate
-    const userClient = createClient({
-      doNamespace: env.DORM_NAMESPACE,
-      version,
-      migrations,
-      ctx,
-      name: access_token,
-      mirrorName: "aggregate",
-    });
-
-    // Check if user exists
-    const existingUser = await userClient
-      .exec<StripeUser>(
-        "SELECT * FROM users WHERE access_token = ?",
-        access_token,
-      )
-      .one()
-      .catch(() => null);
-
-    if (existingUser) {
-      // User exists, update balance and email, and optionally name
-      if (existingUser.name) {
-        // User already has a name, don't update it
-        await userClient
-          .exec(
-            "UPDATE users SET balance = balance + ?, email = ? WHERE access_token = ?",
-            amount_total,
-            customer_details.email,
-            access_token,
-          )
-          .toArray();
-      } else {
-        // User doesn't have a name, update it if available
-        await userClient
-          .exec(
-            "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
-            amount_total,
-            customer_details.email,
-            customer_details.name || null,
-            access_token,
-          )
-          .toArray();
-      }
-    } else {
-      // User doesn't exist, create new user
       await userClient
         .exec(
           "INSERT INTO users (access_token, balance, email, verified_email, card_fingerprint, name, client_reference_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -357,7 +337,61 @@ async function handleStripeWebhook(
           client_reference_id,
         )
         .toArray();
+
+      return new Response("Payment processed successfully", { status: 200 });
     }
+
+    const isAlternateAccessToken = verified_user_access_token !== access_token;
+
+    if (!isAlternateAccessToken) {
+      return new Response(
+        "Found the user even though 'userFromAccessToken' was not found. Data might be corrupt",
+        { status: 500 },
+      );
+    }
+
+    // There is an alternate access token found, and the current access_token did not have a user tied to it yet.
+
+    // We should set `verified_user_access_token` on this user, and add the balance to the alternate user.
+
+    // The access_token of will be switched to the verified_user_access_token at a later point
+
+    const userClient = createClient({
+      doNamespace: env.DORM_NAMESPACE,
+      version,
+      migrations,
+      ctx,
+      name: access_token,
+      mirrorName: "aggregate",
+    });
+
+    await userClient
+      .exec(
+        "INSERT INTO users (access_token, verified_user_access_token) VALUES (?, ?)",
+        access_token,
+        verified_user_access_token,
+      )
+      .toArray();
+
+    const verifiedUserClient = createClient({
+      doNamespace: env.DORM_NAMESPACE,
+      version,
+      migrations,
+      ctx,
+      name: verified_user_access_token,
+      mirrorName: "aggregate",
+    });
+
+    // add the balance to the verified user
+    await verifiedUserClient
+      .exec(
+        "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
+        amount_total,
+        customer_details.email,
+        customer_details.name || null,
+        verified_user_access_token,
+      )
+      .toArray();
 
     return new Response("Payment processed successfully", { status: 200 });
   }
@@ -393,10 +427,14 @@ async function handleUserSession<T extends StripeUser>(
   env: Env,
   ctx: ExecutionContext,
   url: URL,
-  headers: Headers,
   migrations: Migrations,
   version: string,
-): Promise<{ user: T; userClient: DORMClient | undefined }> {
+): Promise<{
+  user: T;
+  userClient: DORMClient | undefined;
+  /** The set-cookie header(s) */
+  headers: { [key: string]: string };
+}> {
   const cookieHeader = request.headers.get("Cookie");
   const cookies = cookieHeader ? parseCookies(cookieHeader) : {};
 
@@ -417,14 +455,29 @@ async function handleUserSession<T extends StripeUser>(
     });
 
     try {
-      const client_reference_id = await encryptToken(
-        accessToken,
-        env.DB_SECRET,
-      );
-
       user = await userClient
         .exec<T>("SELECT * FROM users WHERE access_token = ?", accessToken)
         .one();
+
+      if (user.verified_user_access_token) {
+        // udpate access_token
+        accessToken = user.verified_user_access_token;
+        // we should switch to this one!!!
+        userClient = createClient({
+          doNamespace: env.DORM_NAMESPACE,
+          version,
+          migrations,
+          ctx,
+          name: accessToken,
+          mirrorName: "aggregate",
+        });
+
+        user = await userClient
+          .exec<T>("SELECT * FROM users WHERE access_token = ?", accessToken)
+          .one();
+      }
+
+      let client_reference_id = await encryptToken(accessToken, env.DB_SECRET);
 
       if (user.client_reference_id !== client_reference_id) {
         // ensure to overwrite client_reference_id incase we have a new DB_SECRET
@@ -461,18 +514,16 @@ async function handleUserSession<T extends StripeUser>(
       email: null,
       client_reference_id,
     } as T;
-
-    // Set cookie
-    const skipLogin = env.SKIP_LOGIN === "true";
-    const securePart = skipLogin ? "" : " Secure;";
-    const domainPart = skipLogin ? "" : ` Domain=${url.hostname};`;
-    const cookieSuffix = `;${domainPart} HttpOnly; Path=/;${securePart} Max-Age=34560000; SameSite=Lax`;
-
-    headers.append(
-      "Set-Cookie",
-      `access_token=${user.access_token}${cookieSuffix}`,
-    );
   }
 
-  return { user, userClient };
+  // Set cookie
+  const skipLogin = env.SKIP_LOGIN === "true";
+  const securePart = skipLogin ? "" : " Secure;";
+  const domainPart = skipLogin ? "" : ` Domain=${url.hostname};`;
+  const cookieSuffix = `;${domainPart} HttpOnly; Path=/;${securePart} Max-Age=34560000; SameSite=Lax`;
+  const headers = {
+    "Set-Cookie": `access_token=${user.access_token}${cookieSuffix}`,
+  };
+
+  return { user, userClient, headers };
 }
