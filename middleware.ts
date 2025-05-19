@@ -351,9 +351,7 @@ async function handleStripeWebhook(
     }
 
     // There is an alternate access token found, and the current access_token did not have a user tied to it yet.
-
     // We should set `verified_user_access_token` on this user, and add the balance to the alternate user.
-
     // The access_token of will be switched to the verified_user_access_token at a later point
 
     const userClient = createClient({
@@ -382,7 +380,7 @@ async function handleStripeWebhook(
       mirrorName: "aggregate",
     });
 
-    // add the balance to the verified user
+    // Add the balance to the verified user
     await verifiedUserClient
       .exec(
         "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
