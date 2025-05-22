@@ -8,7 +8,7 @@ Let me know your thoughts in [this thread](https://x.com/janwilmake/status/19244
 
 # Getting started
 
-1. Use LMPIFY or any other LLM with https://uithub.com/janwilmake/stripeflare to get started building your idea. [![](https://b.lmpify.com/Use_as_Template)](https://lmpify.com/)
+1. Use LMPIFY or any other LLM with [![janwilmake/stripeflare context](https://badge.forgithub.com/janwilmake/stripeflare)](https://uithub.com/janwilmake/stripeflare) to get started building your idea. [![](https://b.lmpify.com/Use_as_Template)](https://lmpify.com/)
 2. Submit the result to a github repo and Deploy to Cloudflare
 3. [Collect the environment variables and set them in dev and production](#collecting-needed-environment-variables)
 
