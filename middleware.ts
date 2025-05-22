@@ -11,6 +11,7 @@ export interface Env {
   STRIPE_WEBHOOK_SIGNING_SECRET: string;
   STRIPE_SECRET: string;
   STRIPE_PUBLISHABLE_KEY: string;
+  STRIPE_PAYMENT_LINK: string;
   SKIP_LOGIN?: string;
 }
 

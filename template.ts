@@ -119,7 +119,7 @@ export default {
     headers.append("Content-Type", "text/html");
 
     const { access_token, verified_user_access_token, ...rest } = user;
-
+    const payment_link = env.STRIPE_PAYMENT_LINK;
     const speed = Date.now() - t;
     const modifiedHtml = template.replace(
       "</head>",
@@ -128,6 +128,7 @@ export default {
         speed,
         charged,
         message,
+        payment_link,
       })};</script></head>`,
     );
     return new Response(modifiedHtml, { headers });

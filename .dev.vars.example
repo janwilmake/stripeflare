@@ -1,6 +1,8 @@
+# get these credentials from stripe. every domain requires its own webhook signing secret, other secrets are reuable cross-domain
 STRIPE_WEBHOOK_SIGNING_SECRET=
 STRIPE_SECRET=
 STRIPE_PUBLISHABLE_KEY=
+STRIPE_PAYMENT_LINK=
 DB_SECRET=
 # Set to true in localhost to not use secure cookies
 SKIP_LOGIN=true
