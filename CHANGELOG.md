@@ -13,3 +13,8 @@ Changed logic to only create user after payment. Will still create empty DOs (to
 https://x.com/janwilmake/status/1922903746658341049
 
 Also, found a way use stripeflare to login by payment. A unauthenticated user can login into their account by making a small payment. See ADR
+
+# May 22nd
+
+- Added payment_link to environment variables to make it easier to manage
+- Added deploy to cloudflare button to make it easier to try and template from
