@@ -8,6 +8,7 @@
   ],
   "dependencies": {
     "dormroom": "^1.0.0-next.20",
-    "stripe": "^18.0.0"
+    "stripe": "^18.0.0",
+    "stripeflare": "^0.0.16"
   }
 }
