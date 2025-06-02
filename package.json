@@ -1,6 +1,6 @@
 {
   "name": "stripeflare",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "main": "middleware.ts",
   "files": [
     "middleware.ts",

@@ -145,12 +145,29 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
 
   if (path === "/me") {
     // NB: Can't put out access_token generally because it's a security leak to expose that to apps that run untrusted code.
-    const { access_token, verified_user_access_token, ...publicUser } =
-      user || {};
+    const {
+      access_token,
+      verified_user_access_token,
+      client_reference_id,
+      ...publicUser
+    } = user || {};
+    const paymentLink = client_reference_id
+      ? env.STRIPE_PAYMENT_LINK +
+        "?client_reference_id=" +
+        encodeURIComponent(client_reference_id)
+      : undefined;
+
     return {
-      response: new Response(JSON.stringify(publicUser, undefined, 2), {
-        headers,
-      }),
+      response: new Response(
+        JSON.stringify(
+          { ...publicUser, client_reference_id, paymentLink },
+          undefined,
+          2,
+        ),
+        {
+          headers,
+        },
+      ),
     };
   }
 
