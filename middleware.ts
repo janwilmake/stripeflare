@@ -120,16 +120,25 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
   }
 
   // Handle database API access
-  if (path.startsWith("/aggregate/")) {
-    const dbResponse = await handleDatabaseAPI(
-      request,
-      env,
-      ctx,
-      migrations,
+  if (path.startsWith("/db/")) {
+    const name = path.split("/")[2];
+
+    const client = createClient({
+      doNamespace: env.DORM_NAMESPACE,
       version,
-    );
-    if (dbResponse) {
-      return { response: dbResponse };
+      migrations,
+      ctx,
+      name,
+      mirrorName: name === "aggregate" ? undefined : "aggregate",
+    });
+
+    const middlewareResponse = await client.middleware(request, {
+      prefix: "/db/" + name,
+      secret: env.DB_SECRET,
+    });
+
+    if (middlewareResponse) {
+      return { response: middlewareResponse };
     }
   }
 
@@ -439,29 +448,6 @@ async function handleStripeWebhook(
   }
 
   return new Response("Event not handled", { status: 200 });
-}
-
-async function handleDatabaseAPI(
-  request: Request,
-  env: Env,
-  ctx: ExecutionContext,
-  migrations: Migrations,
-  version: string,
-): Promise<Response | undefined> {
-  const aggregateClient = createClient({
-    doNamespace: env.DORM_NAMESPACE,
-    version,
-    migrations,
-    ctx,
-    name: "aggregate",
-  });
-
-  const middlewareResponse = await aggregateClient.middleware(request, {
-    prefix: "/aggregate",
-    secret: env.DB_SECRET,
-  });
-
-  return middlewareResponse;
 }
 
 /**

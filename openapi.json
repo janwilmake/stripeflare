@@ -303,12 +303,22 @@
         }
       }
     },
-    "/aggregate/{path}": {
+    "/db/{name}/{path}": {
       "get": {
         "summary": "Database API access (GET)",
-        "description": "Provides direct access to the aggregate database for read operations",
+        "description": "Provides direct access to any database",
         "tags": ["Database"],
         "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Database name (aggregate for admin overview - readonly)"
+          },
+
           {
             "name": "path",
             "in": "path",
