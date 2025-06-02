@@ -9,7 +9,8 @@
         "template.ts",
         "template.html",
         ".dev.vars.example",
-        "wrangler.jsonc"
+        "wrangler.jsonc",
+        "openapi.json"
       ],
       "prompt": "Please create a new cloudflare typescript worker that uses stripeflare for monetisation with the following state and functionality: ..."
     },
