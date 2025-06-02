@@ -1,0 +1,423 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Stripe Balance Middleware API",
+    "description": "A middleware API for managing user sessions, Stripe payments, and database operations with balance tracking functionality.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support"
+    }
+  },
+  "components": {
+    "schemas": {
+      "StripeUser": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "User's display name"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "User's access token (sensitive - not returned in /me endpoint)"
+          },
+          "verified_user_access_token": {
+            "type": "string",
+            "nullable": true,
+            "description": "Verified user access token for account linking"
+          },
+          "balance": {
+            "type": "integer",
+            "description": "User's balance in cents"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "format": "email",
+            "description": "User's email address"
+          },
+          "client_reference_id": {
+            "type": "string",
+            "description": "Encrypted client reference ID for Stripe"
+          },
+          "card_fingerprint": {
+            "type": "string",
+            "nullable": true,
+            "description": "Stripe card fingerprint for user identification"
+          },
+          "verified_email": {
+            "type": "string",
+            "nullable": true,
+            "format": "email",
+            "description": "Verified email address from payment method"
+          }
+        },
+        "required": ["access_token", "balance", "client_reference_id"]
+      },
+      "PublicUser": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "balance": {
+            "type": "integer"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "format": "email"
+          },
+          "client_reference_id": {
+            "type": "string"
+          },
+          "card_fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "verified_email": {
+            "type": "string",
+            "nullable": true,
+            "format": "email"
+          }
+        },
+        "required": ["balance", "client_reference_id"]
+      },
+      "TokenRotationResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["success", "message"]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": ["error"]
+      },
+      "StripeWebhookEvent": {
+        "type": "object",
+        "description": "Stripe webhook event payload",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "enum": ["event"]
+          },
+          "type": {
+            "type": "string",
+            "description": "Event type (e.g., checkout.session.completed)"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "object": {
+                "type": "object",
+                "description": "The event data object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Use your access token as a Bearer token"
+      },
+      "CookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "access_token",
+        "description": "Authentication via access_token cookie"
+      },
+      "StripeSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "stripe-signature",
+        "description": "Stripe webhook signature for verification"
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    },
+    {
+      "CookieAuth": []
+    }
+  ],
+  "paths": {
+    "/me": {
+      "get": {
+        "summary": "Get current user information",
+        "description": "Returns the current user's public information (excluding sensitive tokens)",
+        "tags": ["User"],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "CookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User information retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicUser"
+                }
+              }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "description": "Updates or sets the access_token cookie",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rotate-token": {
+      "post": {
+        "summary": "Rotate user access token",
+        "description": "Generates a new access token for the user, transfers all data to the new token, and deletes the old one. This is useful for security purposes.",
+        "tags": ["Security"],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "CookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token rotated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenRotationResponse"
+                }
+              }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "description": "Sets the new access_token cookie",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not allowed"
+          },
+          "500": {
+            "description": "Failed to rotate token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stripe-webhook": {
+      "post": {
+        "summary": "Handle Stripe webhook events",
+        "description": "Processes Stripe webhook events, particularly checkout.session.completed events for payment processing and balance updates",
+        "tags": ["Stripe"],
+        "security": [
+          {
+            "StripeSignature": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StripeWebhookEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook processed successfully",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Payment processed successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - missing body, signature, or invalid event",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during processing"
+          }
+        }
+      }
+    },
+    "/aggregate/{path}": {
+      "get": {
+        "summary": "Database API access (GET)",
+        "description": "Provides direct access to the aggregate database for read operations",
+        "tags": ["Database"],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Database operation path"
+          },
+          {
+            "name": "secret",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Database secret for authentication"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Database operation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Database query results"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid secret"
+          },
+          "400": {
+            "description": "Bad request - invalid query"
+          }
+        }
+      },
+      "post": {
+        "summary": "Database API access (POST)",
+        "description": "Provides direct access to the aggregate database for write operations",
+        "tags": ["Database"],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Database operation path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "secret": {
+                    "type": "string",
+                    "description": "Database secret for authentication"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Database operation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Database operation results"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid secret"
+          },
+          "400": {
+            "description": "Bad request - invalid query"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "User",
+      "description": "User management and information endpoints"
+    },
+    {
+      "name": "Security",
+      "description": "Security-related operations like token rotation"
+    },
+    {
+      "name": "Stripe",
+      "description": "Stripe payment processing and webhook handling"
+    },
+    {
+      "name": "Database",
+      "description": "Direct database access endpoints"
+    }
+  ]
+}

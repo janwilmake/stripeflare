@@ -96,6 +96,17 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
   const url = new URL(request.url);
   const path = url.pathname;
 
+  if (path === "/rotate-token") {
+    const rotateResponse = await handleTokenRotation(
+      request,
+      env,
+      ctx,
+      migrations,
+      version,
+    );
+    return { response: rotateResponse };
+  }
+
   // Handle Stripe webhook
   if (path === "/stripe-webhook") {
     const webhookResponse = await handleStripeWebhook(
@@ -131,6 +142,17 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     migrations,
     version,
   );
+
+  if (path === "/me") {
+    // NB: Can't put out access_token generally because it's a security leak to expose that to apps that run untrusted code.
+    const { access_token, verified_user_access_token, ...publicUser } =
+      user || {};
+    return {
+      response: new Response(JSON.stringify(publicUser, undefined, 2), {
+        headers,
+      }),
+    };
+  }
 
   const charge = async (amountCent: number, allowNegativeBalance: boolean) => {
     if (!userClient || !user.access_token) {
@@ -423,6 +445,118 @@ async function handleDatabaseAPI(
   });
 
   return middlewareResponse;
+}
+
+/**
+ * Adds simple token rotation. NB: this deletes the old user and creates a new one with same balance, setting the cookie.
+ *
+ * Limitation: if the user has other state or user columns on their durable object, this won't be enough!
+ */
+async function handleTokenRotation(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  migrations: Migrations,
+  version: string,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+
+  // Get current session
+  const { user, userClient } = await handleUserSession(
+    request,
+    env,
+    ctx,
+    new URL(request.url),
+    migrations,
+    version,
+  );
+
+  if (!userClient || !user.access_token) {
+    return new Response(JSON.stringify({ error: "Not authenticated" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Generate new access token
+  const newAccessToken = crypto.randomUUID();
+  const newClientReferenceId = await encryptToken(
+    newAccessToken,
+    env.DB_SECRET,
+  );
+
+  // Create new user client
+  const newUserClient = createClient({
+    doNamespace: env.DORM_NAMESPACE,
+    version,
+    migrations,
+    ctx,
+    name: newAccessToken,
+    mirrorName: "aggregate",
+  });
+
+  try {
+    // Copy user data to new access token
+    await newUserClient
+      .exec(
+        `INSERT INTO users (
+          access_token, balance, email, verified_email, 
+          card_fingerprint, name, client_reference_id, verified_user_access_token
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        newAccessToken,
+        user.balance,
+        user.email,
+        user.verified_email,
+        user.card_fingerprint,
+        user.name,
+        newClientReferenceId,
+        null, // Clear verified_user_access_token for the new token
+      )
+      .toArray();
+
+    // Delete old user data
+    await userClient
+      .exec("DELETE FROM users WHERE access_token = ?", user.access_token)
+      .toArray();
+
+    // Set new cookie
+    const url = new URL(request.url);
+    const skipLogin = env.SKIP_LOGIN === "true";
+    const securePart = skipLogin ? "" : " Secure;";
+    const domainPart = skipLogin ? "" : ` Domain=${url.hostname};`;
+    const cookieSuffix = `;${domainPart} HttpOnly; Path=/;${securePart} Max-Age=34560000; SameSite=Lax`;
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Token rotated successfully",
+        // Don't return the new token in response for security
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Set-Cookie": `access_token=${newAccessToken}${cookieSuffix}`,
+        },
+      },
+    );
+  } catch (error) {
+    // If something goes wrong, clean up the new token
+    try {
+      await newUserClient
+        .exec("DELETE FROM users WHERE access_token = ?", newAccessToken)
+        .toArray();
+    } catch (cleanupError) {
+      console.error("Failed to cleanup after rotation error:", cleanupError);
+    }
+
+    return new Response(JSON.stringify({ error: "Failed to rotate token" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
 
 async function handleUserSession<T extends StripeUser>(
