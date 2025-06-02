@@ -140,14 +140,18 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
       };
     }
 
-    const update = userClient.exec(
-      allowNegativeBalance
-        ? "UPDATE users SET balance = balance - ? WHERE access_token = ?"
-        : "UPDATE users SET balance = balance - ? WHERE access_token = ? and balance >= ?",
-      amountCent,
-      user.access_token,
-      amountCent,
-    );
+    const update = allowNegativeBalance
+      ? userClient.exec(
+          "UPDATE users SET balance = balance - ? WHERE access_token = ?",
+          amountCent,
+          user.access_token,
+        )
+      : userClient.exec(
+          "UPDATE users SET balance = balance - ? WHERE access_token = ? and balance >= ?",
+          amountCent,
+          user.access_token,
+          amountCent,
+        );
 
     await update.toArray();
     const { rowsWritten } = update;
@@ -435,9 +439,14 @@ async function handleUserSession<T extends StripeUser>(
   headers: { [key: string]: string };
 }> {
   const cookieHeader = request.headers.get("Cookie");
+  const authorizationHeader = request.headers.get("Authorization");
+  const bearerToken = authorizationHeader?.toLowerCase()?.startsWith("bearer ")
+    ? authorizationHeader.slice("Bearer ".length)
+    : undefined;
+
   const cookies = cookieHeader ? parseCookies(cookieHeader) : {};
 
-  let accessToken = cookies.access_token;
+  let accessToken = bearerToken || cookies.access_token;
   let user: T | null = null;
   let userClient: DORMClient | undefined = undefined;
 
