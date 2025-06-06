@@ -30,7 +30,6 @@ export default withStripeflare<StripeUser>({
     async fetch(request, env, ctx): Promise<Response> {
       const t = Date.now();
       const { charged, message } = await ctx.charge(1, false);
-      const { access_token, verified_user_access_token, ...rest } = ctx.user;
       const speed = Date.now() - t;
       return new Response(
         charged
