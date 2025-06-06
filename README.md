@@ -93,9 +93,15 @@ DB_SECRET=
 
 ## Usage
 
+In your worker:
+
 - `ctx.charge(amount, allowNegativeBalance)` charges the user
 - `ctx.user` has a user object with or without details
 - `ctx.client` contains your db client
+
+In your static files you can also access these:
+
+- `/me` returns `{paymentLink,client_reference_id,...publicUser}`
 
 # About
 
