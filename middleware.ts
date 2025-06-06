@@ -17,9 +17,10 @@ export interface Env {
 }
 
 export type StripeUser = {
-  name: string | null;
   access_token: string;
   verified_user_access_token: string | null;
+  // public
+  name: string | null;
   balance: number;
   email: string | null;
   client_reference_id: string;

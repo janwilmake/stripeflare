@@ -101,7 +101,9 @@ In your worker:
 
 In your static files you can also access these:
 
-- `/me` returns `{paymentLink,client_reference_id,...publicUser}`
+- `GET /me` returns `{paymentLink,client_reference_id, balance, name, email, card_fingerprint, verified_email }` which can be useful to show these details fast. Requires cookie!
+- `POST /rotate-token` (to rotate the token, instable, may be removed in future version)
+- `/db/*` (to perform direct queries to your databases) - for DORM integration with outerbase, see DORM Docs
 
 # About
 
