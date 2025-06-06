@@ -282,10 +282,10 @@
 
         // Check for user_data and extract client_reference_id
         if (window.data) {
-            const { client_reference_id, balance, email, name, speed, charged, message, payment_link } = window.data;
+            const { client_reference_id, balance, email, name, speed, charged, message, paymentLink } = window.data;
             if (client_reference_id) {
                 // Construct the payment link with client_reference_id
-                const paymentUrl = `${payment_link}?client_reference_id=${client_reference_id}`;
+                const paymentUrl = `${paymentLink}?client_reference_id=${client_reference_id}`;
                 document.getElementById('paymentLink').href = paymentUrl;
                 document.getElementById('balance').innerHTML = '<i class="fas fa-wallet"></i> $' + balance / 100;
                 document.getElementById('email-value').innerText = email || "Unavailable";

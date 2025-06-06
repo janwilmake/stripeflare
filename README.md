@@ -4,22 +4,23 @@
 
 Stripeflare is middleware that adds Stripe Payments to a Cloudflare Worker and have users keep track of a balance in your own database, without requiring third-party authentication (Just Stripe Payment)! Let me know your thoughts in [this thread](https://x.com/janwilmake/status/1924404433317675347) and check [the demo](https://x.com/janwilmake/status/1924766605143142683)
 
-# Getting started
+**⚡️ Lightning Fast** | **🔑 ACID Compliant** | **☁️ Cloudflare Optimised** | **☁️ Minimal Setup**
 
-## Collecting Needed Environment Variables
+# Installation
 
-1. Create a Stripe account, navigate to https://dashboard.stripe.com/apikeys and collect `STRIPE_SECRET` and `STRIPE_PUBLISHABLE_KEY`
-2. Create a webhook at https://dashboard.stripe.com/webhooks/create. Endpoint URL: https://yourdomain.com/stripe-webhook and sollect `STRIPE_WEBHOOK_SIGNING_SECRET`
-3. Create a payment link at https://dashboard.stripe.com/payment-links and set this as `STRIPE_PAYMENT_LINK`
+First install the package (which also installs [DORM](https://github.com/janwilmake/dorm))
 
-## Installation
+```sh
+npm i stripeflare
+```
 
 The easiest way is to use `withStripeflare` which wraps your entire `ExportedHandler`:
 
+## `main.ts`
+
 ```ts
-// To use this template, replace "./middleware" by "stripeflare" and add stripeflare to your dependencies (npm i stripeflare)
-import { withStripeflare, StripeUser } from "./middleware";
-export { DORM } from "./middleware";
+import { withStripeflare, StripeUser, DORM } from "stripeflare";
+export { DORM };
 
 // StripeUser can be extended
 export default withStripeflare<StripeUser>({
@@ -39,6 +40,45 @@ export default withStripeflare<StripeUser>({
     },
   },
 });
+```
+
+`wrangler.json|toml`
+
+The following adds DORM durable object to your Cloudflare Bindings, which stripeflare uses to allow for lightning-fast user balance charges.
+
+```json
+{
+  "durable_objects": {
+    "bindings": [{ "name": "DORM_NAMESPACE", "class_name": "DORM" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DORM"] }]
+}
+```
+
+For TOML:
+
+```toml
+[[durable_objects.bindings]]
+name = "DORM_NAMESPACE"
+class_name = "DORM"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DORM"]
+```
+
+`.dev.vars`
+
+```
+# Create a Stripe account, navigate to https://dashboard.stripe.com/apikeys and collect `STRIPE_SECRET` and `STRIPE_PUBLISHABLE_KEY`
+STRIPE_SECRET=
+STRIPE_PUBLISHABLE_KEY=
+# Create a webhook at https://dashboard.stripe.com/webhooks/create. Endpoint URL: https://yourdomain.com/stripe-webhook and sollect `STRIPE_WEBHOOK_SIGNING_SECRET`
+STRIPE_WEBHOOK_SIGNING_SECRET=
+# Create a payment link at https://dashboard.stripe.com/payment-links and set this as `STRIPE_PAYMENT_LINK`
+STRIPE_PAYMENT_LINK=
+# Put a 32 character+ secret here to sign your secrets
+DB_SECRET=
 ```
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/janwilmake/stripeflare) <!-- for easy deployment, ensure to add this into the readme of the created project -->
