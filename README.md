@@ -48,6 +48,9 @@ The following adds DORM durable object to your Cloudflare Bindings, which stripe
 
 ```json
 {
+  "name": "stripeflare-example",
+  "compatibility_date": "2025-06-06",
+  "main": "main.ts",
   "durable_objects": {
     "bindings": [{ "name": "DORM_NAMESPACE", "class_name": "DORM" }]
   },
@@ -58,6 +61,11 @@ The following adds DORM durable object to your Cloudflare Bindings, which stripe
 For TOML:
 
 ```toml
+
+name = "stripeflare-example"
+main = "main.ts"
+compatibility_date = "2025-06-06"
+
 [[durable_objects.bindings]]
 name = "DORM_NAMESPACE"
 class_name = "DORM"
@@ -69,7 +77,7 @@ new_sqlite_classes = ["DORM"]
 
 `.dev.vars`
 
-```
+```env
 # Create a Stripe account, navigate to https://dashboard.stripe.com/apikeys and collect `STRIPE_SECRET` and `STRIPE_PUBLISHABLE_KEY`
 STRIPE_SECRET=
 STRIPE_PUBLISHABLE_KEY=
