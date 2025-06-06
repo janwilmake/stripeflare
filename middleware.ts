@@ -20,10 +20,10 @@ export type StripeUser = {
   access_token: string;
   verified_user_access_token: string | null;
   // public
+  client_reference_id: string;
   name: string | null;
   balance: number;
   email: string | null;
-  client_reference_id: string;
   card_fingerprint: string | null;
   verified_email: string | null;
 };
