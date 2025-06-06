@@ -721,6 +721,7 @@ async function handleUserSession<T extends StripeUser>(
 interface StripeflareContext<T extends StripeUser = StripeUser>
   extends ExecutionContext {
   user?: T;
+  client?: DORMClient;
   charge?: (
     amountCent: number,
     allowNegativeBalance: boolean,
@@ -792,6 +793,7 @@ export function withStripeflare<T extends StripeUser = StripeUser>(
         ...ctx,
         user: middlewareResult.user,
         charge: middlewareResult.charge,
+        client: middlewareResult.userClient,
       };
 
       // Call the user's fetch handler
@@ -825,6 +827,7 @@ export function withStripeflare<T extends StripeUser = StripeUser>(
       ctx: ExecutionContext,
     ): Promise<void> {
       if (handler.scheduled) {
+        // TODO: provide client and charge
         const enhancedCtx: StripeflareContext<T> = { ...ctx };
         await handler.scheduled(controller, env, enhancedCtx);
       }
@@ -835,6 +838,7 @@ export function withStripeflare<T extends StripeUser = StripeUser>(
       env: Env,
       ctx: ExecutionContext,
     ): Promise<void> {
+      // TODO: provide client and charge
       if (handler.queue) {
         const enhancedCtx: StripeflareContext<T> = { ...ctx };
         await handler.queue(batch, env, enhancedCtx);
@@ -847,6 +851,7 @@ export function withStripeflare<T extends StripeUser = StripeUser>(
       ctx: ExecutionContext,
     ): Promise<void> {
       if (handler.tail) {
+        // TODO: provide client and charge
         const enhancedCtx: StripeflareContext<T> = { ...ctx };
         await handler.tail(events, env, enhancedCtx);
       }

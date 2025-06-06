@@ -91,6 +91,12 @@ DB_SECRET=
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/janwilmake/stripeflare) <!-- for easy deployment, ensure to add this into the readme of the created project -->
 
+## Usage
+
+- `ctx.charge(amount, allowNegativeBalance)` charges the user
+- `ctx.user` has a user object with or without details
+- `ctx.client` contains your db client
+
 # About
 
 ## Features

@@ -18,3 +18,8 @@ Also, found a way use stripeflare to login by payment. A unauthenticated user ca
 
 - Added payment_link to environment variables to make it easier to manage
 - Added deploy to cloudflare button to make it easier to try and template from
+
+# June 6th
+
+- added initial implementation of `withStripeflare`
+- improved README by a lot!
