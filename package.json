@@ -1,6 +1,6 @@
 {
   "name": "stripeflare",
-  "version": "0.0.22",
+  "version": "0.0.23",
   "main": "middleware.ts",
   "files": [
     "middleware.ts",
@@ -8,7 +8,6 @@
   ],
   "dependencies": {
     "dormroom": "^1.0.0-next.20",
-    "stripe": "18.0.0",
-    "stripeflare": "^0.0.16"
+    "stripe": "18.0.0"
   }
 }

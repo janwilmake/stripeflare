@@ -7,8 +7,5 @@
     "bindings": [{ "name": "DORM_NAMESPACE", "class_name": "DORM" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DORM"] }],
-  "routes": [
-    { "pattern": "stripeflare.com", "custom_domain": true },
-    { "pattern": "www.stripeflare.com", "custom_domain": true }
-  ]
+  "routes": [{ "pattern": "stripeflare.com", "custom_domain": true }]
 }

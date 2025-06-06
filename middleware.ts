@@ -134,7 +134,11 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
 
     const middlewareResponse = await client.middleware(request, {
       prefix: "/db/" + name,
-      secret: env.DB_SECRET,
+      secret:
+        // if its a user-specific db, the secret should be the access_token
+        name === "aggregate"
+          ? env.DB_SECRET
+          : await decryptToken(name, env.DB_SECRET),
     });
 
     if (middlewareResponse) {
@@ -271,8 +275,12 @@ async function handleStripeWebhook(
       customer_email,
     } = session;
 
-    if (!client_reference_id || !customer_details?.email) {
-      return new Response("Missing required data", { status: 400 });
+    if (!client_reference_id) {
+      return new Response("Missing client_reference_id", { status: 400 });
+    }
+
+    if (!customer_details?.email) {
+      return new Response("Missing customer_details.email", { status: 400 });
     }
 
     let access_token: string | undefined = undefined;
