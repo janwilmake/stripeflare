@@ -1,3 +1,4 @@
+import { ExecutionContext } from "@cloudflare/workers-types";
 import { Stripe } from "stripe";
 import { createClient, DORM, DORMClient } from "dormroom";
 import { decryptToken, encryptToken } from "./encrypt-decrypt-js";
@@ -30,18 +31,16 @@ type Migrations = { [version: number]: string[] };
 
 export interface MiddlewareResult<T extends StripeUser> {
   response?: Response;
-  session?: {
-    user: T;
-    headers: { [key: string]: string };
-    userClient?: DORMClient;
-    charge: (
-      amountCent: number,
-      allowNegativeBalance: boolean,
-    ) => Promise<{
-      charged: boolean;
-      message: string;
-    }>;
-  };
+  user?: T;
+  headers?: { [key: string]: string };
+  userClient?: DORMClient;
+  charge?: (
+    amountCent: number,
+    allowNegativeBalance: boolean,
+  ) => Promise<{
+    charged: boolean;
+    message: string;
+  }>;
 }
 
 const parseCookies = (cookieHeader: string): Record<string, string> => {
@@ -83,6 +82,27 @@ const streamToBuffer = async (
   return result;
 };
 
+const defaultMigraitons = {
+  // can add any other info here
+  1: [
+    `CREATE TABLE users (
+      access_token TEXT PRIMARY KEY,
+      balance INTEGER DEFAULT 0,
+      name TEXT,
+      email TEXT,
+      verified_email TEXT,
+      verified_user_access_token TEXT,
+      card_fingerprint TEXT,
+      client_reference_id TEXT
+    )`,
+    `CREATE INDEX idx_users_balance ON users(balance)`,
+    `CREATE INDEX idx_users_name ON users(name)`,
+    `CREATE INDEX idx_users_email ON users(email)`,
+    `CREATE INDEX idx_users_verified_email ON users(verified_email)`,
+    `CREATE INDEX idx_users_card_fingerprint ON users(card_fingerprint)`,
+    `CREATE INDEX idx_users_client_reference_id ON users(client_reference_id)`,
+  ],
+};
 export async function stripeBalanceMiddleware<T extends StripeUser>(
   request: Request,
   env: Env,
@@ -90,18 +110,33 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
   /**
    * Your database migrations. Required user-table columns (preferably all indexed): `CREATE TABLE users ( access_token TEXT PRIMARY KEY, balance INTEGER DEFAULT 0, email TEXT, name TEXT, client_reference_id )`.
    */
-  migrations: Migrations,
-  version: string,
+  customMigrations: Migrations = defaultMigraitons,
+  version: string = "1",
 ): Promise<MiddlewareResult<T>> {
   const url = new URL(request.url);
   const path = url.pathname;
+
+  if (
+    !env.DB_SECRET ||
+    !env.STRIPE_PAYMENT_LINK ||
+    !env.STRIPE_PUBLISHABLE_KEY ||
+    !env.STRIPE_SECRET ||
+    !env.STRIPE_WEBHOOK_SIGNING_SECRET
+  ) {
+    return {
+      response: new Response(
+        "Not all stripeflare environment variables have been set up. Please set your secrets and restart your worker",
+        { status: 500 },
+      ),
+    };
+  }
 
   if (path === "/rotate-token") {
     const rotateResponse = await handleTokenRotation(
       request,
       env,
       ctx,
-      migrations,
+      customMigrations,
       version,
     );
     return { response: rotateResponse };
@@ -113,7 +148,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
       request,
       env,
       ctx,
-      migrations,
+      customMigrations,
       version,
     );
     return { response: webhookResponse };
@@ -126,7 +161,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     const client = createClient({
       doNamespace: env.DORM_NAMESPACE,
       version,
-      migrations,
+      migrations: customMigrations,
       ctx,
       name,
       mirrorName: name === "aggregate" ? undefined : "aggregate",
@@ -152,7 +187,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     env,
     ctx,
     url,
-    migrations,
+    customMigrations,
     version,
   );
 
@@ -214,7 +249,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     return { charged: true, message: "Successfully charged" };
   };
 
-  return { session: { user, headers, userClient, charge } };
+  return { user, headers, userClient, charge };
 }
 
 async function handleStripeWebhook(
@@ -679,4 +714,142 @@ async function handleUserSession<T extends StripeUser>(
   };
 
   return { user, userClient, headers };
+}
+
+// https://lmpify.com/httpspastebincon-bthl4d0
+
+interface StripeflareContext<T extends StripeUser = StripeUser>
+  extends ExecutionContext {
+  user?: T;
+  charge?: (
+    amountCent: number,
+    allowNegativeBalance: boolean,
+  ) => Promise<{
+    charged: boolean;
+    message: string;
+  }>;
+}
+
+interface StripeflareHandler<T extends StripeUser = StripeUser> {
+  fetch?(
+    request: Request,
+    env: Env,
+    ctx: StripeflareContext<T>,
+  ): Response | Promise<Response>;
+  scheduled?(
+    controller: ScheduledController,
+    env: Env,
+    ctx: StripeflareContext<T>,
+  ): void | Promise<void>;
+  queue?(
+    batch: MessageBatch,
+    env: Env,
+    ctx: StripeflareContext<T>,
+  ): void | Promise<void>;
+  tail?(
+    events: TraceItem[],
+    env: Env,
+    ctx: StripeflareContext<T>,
+  ): void | Promise<void>;
+}
+
+interface StripeflareConfig<T extends StripeUser = StripeUser> {
+  /** Optional: can add any other data here but ensure to not remove any of the required properties in the user table */
+  customMigrations?: Migrations;
+  /**  changing the version will "reset" the dbs by using other prefix to the DO-names */
+  version?: string;
+  /** Your regular handler, but with ctx.charge, ctx.user, and ctx.client! */
+  handler: StripeflareHandler<T>;
+}
+
+export function withStripeflare<T extends StripeUser = StripeUser>(
+  config: StripeflareConfig<T>,
+): ExportedHandler<Env> {
+  const { customMigrations, version, handler } = config;
+
+  return {
+    async fetch(
+      request: Request,
+      env: Env,
+      ctx: ExecutionContext,
+    ): Promise<Response> {
+      // Apply the stripe balance middleware
+      const middlewareResult = await stripeBalanceMiddleware<T>(
+        request,
+        env,
+        ctx,
+        customMigrations,
+        version,
+      );
+
+      // If middleware returns a response, return it directly (webhooks, auth endpoints, etc.)
+      if (middlewareResult.response) {
+        return middlewareResult.response;
+      }
+
+      // Create enhanced context with user and charge function
+      const enhancedCtx: StripeflareContext<T> = {
+        ...ctx,
+        user: middlewareResult.user,
+        charge: middlewareResult.charge,
+      };
+
+      // Call the user's fetch handler
+      if (handler.fetch) {
+        const response = await handler.fetch(request, env, enhancedCtx);
+
+        // Merge any headers from middleware (like Set-Cookie) with the response
+        if (middlewareResult.headers) {
+          const newHeaders = new Headers(response.headers);
+          Object.entries(middlewareResult.headers).forEach(([key, value]) => {
+            newHeaders.set(key, value);
+          });
+
+          return new Response(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: newHeaders,
+          });
+        }
+
+        return response;
+      }
+
+      // If no fetch handler, return 404
+      return new Response("Not Found", { status: 404 });
+    },
+
+    async scheduled(
+      controller: ScheduledController,
+      env: Env,
+      ctx: ExecutionContext,
+    ): Promise<void> {
+      if (handler.scheduled) {
+        const enhancedCtx: StripeflareContext<T> = { ...ctx };
+        await handler.scheduled(controller, env, enhancedCtx);
+      }
+    },
+
+    async queue(
+      batch: MessageBatch,
+      env: Env,
+      ctx: ExecutionContext,
+    ): Promise<void> {
+      if (handler.queue) {
+        const enhancedCtx: StripeflareContext<T> = { ...ctx };
+        await handler.queue(batch, env, enhancedCtx);
+      }
+    },
+
+    async tail(
+      events: TraceItem[],
+      env: Env,
+      ctx: ExecutionContext,
+    ): Promise<void> {
+      if (handler.tail) {
+        const enhancedCtx: StripeflareContext<T> = { ...ctx };
+        await handler.tail(events, env, enhancedCtx);
+      }
+    },
+  };
 }

@@ -43,29 +43,28 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<Response> {
-    const result = await stripeBalanceMiddleware<User>(
-      request,
-      env,
-      ctx,
-      migrations,
-      // changing this will link to a fully new db
-      "0.0.10",
-    );
+    const { response, charge, headers, user, userClient } =
+      await stripeBalanceMiddleware<User>(
+        request,
+        env,
+        ctx,
+        migrations,
+        // changing this will link to a fully new db
+        "0.0.10",
+      );
 
     // If middleware returned a response (webhook or db api), return it directly
-    if (result.response) {
-      return result.response;
+    if (response) {
+      return response;
     }
 
-    if (!result.session) {
-      return new Response("Somethign went wrong", { status: 404 });
+    if (!charge || !headers || !user || !userClient) {
+      return new Response("Something went wrong", { status: 500 });
     }
-
-    let user: User | null = result.session.user;
 
     const t = Date.now();
 
-    const { charged, message } = await result.session.charge(1, false);
+    const { charged, message } = await charge(1, false);
 
     // We can also directly connect with the DB through dorm client
     // const client = createClient({
@@ -115,8 +114,6 @@ export default {
     // }
 
     // Otherwise, inject user data and return HTML
-    const headers = new Headers(result.session.headers || {});
-    headers.append("Content-Type", "text/html");
 
     const { access_token, verified_user_access_token, ...rest } = user;
     const payment_link = env.STRIPE_PAYMENT_LINK;
@@ -131,6 +128,8 @@ export default {
         payment_link,
       })};</script></head>`,
     );
-    return new Response(modifiedHtml, { headers });
+    return new Response(modifiedHtml, {
+      headers: { ...headers, "Content-Type": "text/html" },
+    });
   },
 };
