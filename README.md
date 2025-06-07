@@ -6,7 +6,15 @@ Stripeflare is middleware that adds Stripe Payments to a Cloudflare Worker and h
 
 **⚡️ Lightning Fast** | **🔑 ACID Compliant** | **☁️ Cloudflare Optimised** | **🍬 Minimal Setup**
 
-# Installation
+# Automatic Installation
+
+```sh
+npx create-stripeflare
+```
+
+See [create-stripeflare](https://github.com/janwilmake/create-stripeflare) for more detailed instructions.
+
+# Manual Installation
 
 First install the package (which also installs [DORM](https://github.com/janwilmake/dorm))
 
@@ -14,7 +22,7 @@ First install the package (which also installs [DORM](https://github.com/janwilm
 npm i stripeflare
 ```
 
-The easiest way is to use `withStripeflare` which wraps your entire `ExportedHandler`:
+The easiest way to install stripeflare **for existing projects**, is to use `withStripeflare` which wraps your entire `ExportedHandler`:
 
 ## `main.ts`
 
