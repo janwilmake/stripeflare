@@ -26,5 +26,5 @@ export default {
     return new Response(modifiedHtml, {
       headers: { "Content-Type": "text/html" },
     });
-  }, {}),
+  }),
 };
