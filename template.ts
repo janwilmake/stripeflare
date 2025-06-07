@@ -43,28 +43,23 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<Response> {
-    const { response, charge, headers, user, userClient } =
-      await stripeBalanceMiddleware<User>(
-        request,
-        env,
-        ctx,
-        migrations,
-        // changing this will link to a fully new db
-        "0.0.10",
-      );
+    const middleware = await stripeBalanceMiddleware<User>(
+      request,
+      env,
+      ctx,
+      migrations,
+      // changing this will link to a fully new db
+      "0.0.10",
+    );
 
     // If middleware returned a response (webhook or db api), return it directly
-    if (response) {
-      return response;
-    }
-
-    if (!charge || !headers || !user || !userClient) {
-      return new Response("Something went wrong", { status: 500 });
+    if (middleware.type === "response") {
+      return middleware.response;
     }
 
     const t = Date.now();
 
-    const { charged, message } = await charge(1, false);
+    const { charged, message } = await middleware.charge(1, false);
 
     // We can also directly connect with the DB through dorm client
     // const client = createClient({
@@ -115,7 +110,8 @@ export default {
 
     // Otherwise, inject user data and return HTML
 
-    const { access_token, verified_user_access_token, ...rest } = user;
+    const { access_token, verified_user_access_token, ...rest } =
+      middleware.user;
     const payment_link = env.STRIPE_PAYMENT_LINK;
     const speed = Date.now() - t;
     const modifiedHtml = template.replace(
@@ -128,8 +124,9 @@ export default {
         payment_link,
       })};</script></head>`,
     );
+
     return new Response(modifiedHtml, {
-      headers: { ...headers, "Content-Type": "text/html" },
+      headers: { ...middleware.headers, "Content-Type": "text/html" },
     });
   },
 };

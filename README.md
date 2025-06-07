@@ -30,23 +30,26 @@ The easiest way to install stripeflare **for existing projects**, is to use `wit
 import { withStripeflare, StripeUser, DORM } from "stripeflare";
 export { DORM };
 
-// StripeUser can be extended
-export default withStripeflare<StripeUser>({
-  // customMigrations: optional way to overwrite default user table with an extension to your database
-  // version: "1" // resets data
-  handler: {
-    async fetch(request, env, ctx): Promise<Response> {
-      const t = Date.now();
-      const { charged, message } = await ctx.charge(1, false);
-      const speed = Date.now() - t;
-      return new Response(
-        charged
-          ? `Charged ${ctx.user.name} 1 cent in ${speed}ms`
-          : `Could not charge user in ${speed}ms`,
-      );
+export default {
+  // StripeUser can be extended
+  fetch: withStripeflare<StripeUser>(
+    async (request, env, ctx) => {
+      // ctx.user, ctx.charge, ctx.client are now available
+      const { user, charge, registered } = ctx;
+
+      if (request.url.endsWith("/charge")) {
+        const result = await charge(1, false); // charge 1 cent
+        return new Response(JSON.stringify(result));
+      }
+
+      return new Response(`Hello ${user.name || "Anonymous"}`);
     },
-  },
-});
+    {
+      // customMigrations: optional way to overwrite default user table with an extension to your database
+      // version: "1" // resets data
+    },
+  ),
+} satisfies ExportedHandler<Env>;
 ```
 
 `wrangler.json|toml`

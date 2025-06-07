@@ -30,19 +30,26 @@ export type StripeUser = {
 
 type Migrations = { [version: number]: string[] };
 
-export interface MiddlewareResult<T extends StripeUser> {
-  response?: Response;
-  user?: T;
-  headers?: { [key: string]: string };
-  userClient?: DORMClient;
-  charge?: (
-    amountCent: number,
-    allowNegativeBalance: boolean,
-  ) => Promise<{
-    charged: boolean;
-    message: string;
-  }>;
-}
+export type MiddlewareResult<T extends StripeUser> =
+  | {
+      type: "response";
+      response?: Response;
+    }
+  | {
+      type: "session";
+      user: T;
+      headers: { [key: string]: string };
+      client: DORMClient;
+      paymentLink: string;
+      registered: boolean;
+      charge: (
+        amountCent: number,
+        allowNegativeBalance: boolean,
+      ) => Promise<{
+        charged: boolean;
+        message: string;
+      }>;
+    };
 
 const parseCookies = (cookieHeader: string): Record<string, string> => {
   const cookies: Record<string, string> = {};
@@ -125,6 +132,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     !env.STRIPE_WEBHOOK_SIGNING_SECRET
   ) {
     return {
+      type: "response",
       response: new Response(
         "Not all stripeflare environment variables have been set up. Please set your secrets and restart your worker",
         { status: 500 },
@@ -140,7 +148,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
       customMigrations,
       version,
     );
-    return { response: rotateResponse };
+    return { type: "response", response: rotateResponse };
   }
 
   // Handle Stripe webhook
@@ -152,7 +160,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
       customMigrations,
       version,
     );
-    return { response: webhookResponse };
+    return { type: "response", response: webhookResponse };
   }
 
   // Handle database API access
@@ -178,12 +186,12 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     });
 
     if (middlewareResponse) {
-      return { response: middlewareResponse };
+      return { type: "response", response: middlewareResponse };
     }
   }
 
   // Handle user session
-  const { user, userClient, headers } = await handleUserSession<T>(
+  const { user, client, headers } = await handleUserSession<T>(
     request,
     env,
     ctx,
@@ -191,6 +199,13 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     customMigrations,
     version,
   );
+
+  const paymentLink = user.client_reference_id
+    ? env.STRIPE_PAYMENT_LINK +
+      "?client_reference_id=" +
+      encodeURIComponent(user.client_reference_id)
+    : undefined;
+  const registered = !!user.email;
 
   if (path === "/me") {
     // NB: Can't put out access_token generally because it's a security leak to expose that to apps that run untrusted code.
@@ -200,28 +215,23 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
       client_reference_id,
       ...publicUser
     } = user || {};
-    const paymentLink = client_reference_id
-      ? env.STRIPE_PAYMENT_LINK +
-        "?client_reference_id=" +
-        encodeURIComponent(client_reference_id)
-      : undefined;
 
     return {
+      type: "response",
+
       response: new Response(
         JSON.stringify(
-          { ...publicUser, client_reference_id, paymentLink },
+          { ...publicUser, client_reference_id, paymentLink, registered },
           undefined,
           2,
         ),
-        {
-          headers,
-        },
+        { headers },
       ),
     };
   }
 
   const charge = async (amountCent: number, allowNegativeBalance: boolean) => {
-    if (!userClient || !user.access_token) {
+    if (!client || !user.access_token) {
       return {
         charged: false,
         message: "User is not signed up yet and cannot be charged",
@@ -229,12 +239,12 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     }
 
     const update = allowNegativeBalance
-      ? userClient.exec(
+      ? client.exec(
           "UPDATE users SET balance = balance - ? WHERE access_token = ?",
           amountCent,
           user.access_token,
         )
-      : userClient.exec(
+      : client.exec(
           "UPDATE users SET balance = balance - ? WHERE access_token = ? and balance >= ?",
           amountCent,
           user.access_token,
@@ -250,7 +260,15 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
     return { charged: true, message: "Successfully charged" };
   };
 
-  return { user, headers, userClient, charge };
+  return {
+    type: "session",
+    user,
+    headers,
+    client,
+    charge,
+    paymentLink,
+    registered,
+  };
 }
 
 async function handleStripeWebhook(
@@ -347,7 +365,7 @@ async function handleStripeWebhook(
 
     if (userFromAccessToken) {
       // existing user found at this access_token, just add balance
-      const userClient = createClient({
+      const client = createClient({
         doNamespace: env.DORM_NAMESPACE,
         version,
         migrations,
@@ -356,7 +374,7 @@ async function handleStripeWebhook(
         mirrorName: "aggregate",
       });
 
-      await userClient
+      await client
         .exec(
           "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
           amount_total,
@@ -413,7 +431,7 @@ async function handleStripeWebhook(
 
     if (!verified_user_access_token) {
       // user did not exist and there was no alternate access token found. Let's create the user under the provided access token!
-      const userClient = createClient({
+      const client = createClient({
         doNamespace: env.DORM_NAMESPACE,
         version,
         migrations,
@@ -422,7 +440,7 @@ async function handleStripeWebhook(
         mirrorName: "aggregate",
       });
 
-      await userClient
+      await client
         .exec(
           "INSERT INTO users (access_token, balance, email, verified_email, card_fingerprint, name, client_reference_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
           access_token,
@@ -451,7 +469,7 @@ async function handleStripeWebhook(
     // We should set `verified_user_access_token` on this user, and add the balance to the alternate user.
     // The access_token of will be switched to the verified_user_access_token at a later point
 
-    const userClient = createClient({
+    const client = createClient({
       doNamespace: env.DORM_NAMESPACE,
       version,
       migrations,
@@ -460,7 +478,7 @@ async function handleStripeWebhook(
       mirrorName: "aggregate",
     });
 
-    await userClient
+    await client
       .exec(
         "INSERT INTO users (access_token, verified_user_access_token) VALUES (?, ?)",
         access_token,
@@ -511,7 +529,7 @@ async function handleTokenRotation(
   }
 
   // Get current session
-  const { user, userClient } = await handleUserSession(
+  const { user, client } = await handleUserSession(
     request,
     env,
     ctx,
@@ -520,7 +538,7 @@ async function handleTokenRotation(
     version,
   );
 
-  if (!userClient || !user.access_token) {
+  if (!client || !user.access_token) {
     return new Response(JSON.stringify({ error: "Not authenticated" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -564,7 +582,7 @@ async function handleTokenRotation(
       .toArray();
 
     // Delete old user data
-    await userClient
+    await client
       .exec("DELETE FROM users WHERE access_token = ?", user.access_token)
       .toArray();
 
@@ -615,7 +633,7 @@ async function handleUserSession<T extends StripeUser>(
   version: string,
 ): Promise<{
   user: T;
-  userClient: DORMClient | undefined;
+  client: DORMClient | undefined;
   /** The set-cookie header(s) */
   headers: { [key: string]: string };
 }> {
@@ -629,12 +647,12 @@ async function handleUserSession<T extends StripeUser>(
 
   let accessToken = bearerToken || cookies.access_token;
   let user: T | null = null;
-  let userClient: DORMClient | undefined = undefined;
+  let client: DORMClient | undefined = undefined;
 
   // Try to get existing user
   if (accessToken) {
     // NB: this takes some ms for cold starts because a global lookup is done and new db is created for the accessToken, and happens for every user. Therefore there will be tons of tiny DOs without data, which we should clean up later.
-    userClient = createClient({
+    client = createClient({
       doNamespace: env.DORM_NAMESPACE,
       version,
       migrations,
@@ -644,7 +662,7 @@ async function handleUserSession<T extends StripeUser>(
     });
 
     try {
-      user = await userClient
+      user = await client
         .exec<T>("SELECT * FROM users WHERE access_token = ?", accessToken)
         .one();
 
@@ -652,7 +670,7 @@ async function handleUserSession<T extends StripeUser>(
         // udpate access_token
         accessToken = user.verified_user_access_token;
         // we should switch to this one!!!
-        userClient = createClient({
+        client = createClient({
           doNamespace: env.DORM_NAMESPACE,
           version,
           migrations,
@@ -661,7 +679,7 @@ async function handleUserSession<T extends StripeUser>(
           mirrorName: "aggregate",
         });
 
-        user = await userClient
+        user = await client
           .exec<T>("SELECT * FROM users WHERE access_token = ?", accessToken)
           .one();
       }
@@ -672,7 +690,7 @@ async function handleUserSession<T extends StripeUser>(
         // ensure to overwrite client_reference_id incase we have a new DB_SECRET
         user.client_reference_id = client_reference_id;
 
-        await userClient
+        await client
           .exec<T>(
             "UPDATE users SET client_reference_id = ? WHERE access_token = ?",
             client_reference_id,
@@ -681,7 +699,7 @@ async function handleUserSession<T extends StripeUser>(
           .toArray();
       }
     } catch {
-      userClient = undefined;
+      client = undefined;
 
       // User not found, will create new one
     }
@@ -714,16 +732,18 @@ async function handleUserSession<T extends StripeUser>(
     "Set-Cookie": `access_token=${user.access_token}${cookieSuffix}`,
   };
 
-  return { user, userClient, headers };
+  return { user, client, headers };
 }
 
+// FROM HERE
 // https://lmpify.com/httpspastebincon-bthl4d0
-
 interface StripeflareContext<T extends StripeUser = StripeUser>
   extends ExecutionContext {
-  user?: T;
+  user: T;
   client?: DORMClient;
-  charge?: (
+  registered: boolean;
+  paymentLink: string;
+  charge: (
     amountCent: number,
     allowNegativeBalance: boolean,
   ) => Promise<{
@@ -732,27 +752,10 @@ interface StripeflareContext<T extends StripeUser = StripeUser>
   }>;
 }
 
-interface StripeflareHandler<T extends StripeUser = StripeUser> {
-  fetch?(
-    request: Request,
-    env: Env,
-    ctx: StripeflareContext<T>,
-  ): Response | Promise<Response>;
-  scheduled?(
-    controller: ScheduledController,
-    env: Env,
-    ctx: StripeflareContext<T>,
-  ): void | Promise<void>;
-  queue?(
-    batch: MessageBatch,
-    env: Env,
-    ctx: StripeflareContext<T>,
-  ): void | Promise<void>;
-  tail?(
-    events: TraceItem[],
-    env: Env,
-    ctx: StripeflareContext<T>,
-  ): void | Promise<void>;
+interface StripeflareFetchHandler<T extends StripeUser = StripeUser> {
+  (request: Request, env: Env, ctx: StripeflareContext<T>):
+    | Response
+    | Promise<Response>;
 }
 
 interface StripeflareConfig<T extends StripeUser = StripeUser> {
@@ -760,102 +763,113 @@ interface StripeflareConfig<T extends StripeUser = StripeUser> {
   customMigrations?: Migrations;
   /**  changing the version will "reset" the dbs by using other prefix to the DO-names */
   version?: string;
-  /** Your regular handler, but with ctx.charge, ctx.user, and ctx.client! */
-  handler: StripeflareHandler<T>;
 }
 
 export function withStripeflare<T extends StripeUser = StripeUser>(
-  config: StripeflareConfig<T>,
-): ExportedHandler<Env> {
-  const { customMigrations, version, handler } = config;
+  handler: StripeflareFetchHandler<T>,
+  config?: StripeflareConfig<T>,
+): ExportedHandlerFetchHandler<Env> {
+  const { customMigrations, version } = config || {};
 
-  return {
-    async fetch(
-      request: Request,
-      env: Env,
-      ctx: ExecutionContext,
-    ): Promise<Response> {
-      // Apply the stripe balance middleware
-      const middlewareResult = await stripeBalanceMiddleware<T>(
-        request,
-        env,
-        ctx,
-        customMigrations,
-        version,
+  return async (
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> => {
+    // Apply the stripe balance middleware
+    const middlewareResult = await stripeBalanceMiddleware<T>(
+      request,
+      env,
+      ctx,
+      customMigrations,
+      version,
+    );
+
+    // If middleware returns a response, return it directly (webhooks, auth endpoints, etc.)
+    if (middlewareResult.type === "response") {
+      return (
+        middlewareResult.response ||
+        new Response("Internal Error", { status: 500 })
       );
+    }
 
-      // If middleware returns a response, return it directly (webhooks, auth endpoints, etc.)
-      if (middlewareResult.response) {
-        return middlewareResult.response;
-      }
+    const { user, charge, client, paymentLink, registered, headers } =
+      middlewareResult;
 
-      // Create enhanced context with user and charge function
-      const enhancedCtx: StripeflareContext<T> = {
-        ...ctx,
-        user: middlewareResult.user,
-        charge: middlewareResult.charge,
-        client: middlewareResult.userClient,
-      };
+    // Create enhanced context with user and charge function
+    const enhancedCtx: StripeflareContext<T> = {
+      ...ctx,
+      user,
+      charge,
+      client,
+      paymentLink,
+      registered,
+    };
 
-      // Call the user's fetch handler
-      if (handler.fetch) {
-        const response = await handler.fetch(request, env, enhancedCtx);
+    // Call the user's fetch handler
+    const response = await handler(request, env, enhancedCtx);
 
-        // Merge any headers from middleware (like Set-Cookie) with the response
-        if (middlewareResult.headers) {
-          const newHeaders = new Headers(response.headers);
-          Object.entries(middlewareResult.headers).forEach(([key, value]) => {
-            newHeaders.set(key, value);
-          });
+    // Merge any headers from middleware (like Set-Cookie) with the response
+    if (headers) {
+      const newHeaders = new Headers(response.headers);
+      Object.entries(headers).forEach(([key, value]) => {
+        newHeaders.set(key, value);
+      });
 
-          return new Response(response.body, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: newHeaders,
-          });
-        }
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: newHeaders,
+      });
+    }
 
-        return response;
-      }
-
-      // If no fetch handler, return 404
-      return new Response("Not Found", { status: 404 });
-    },
-
-    async scheduled(
-      controller: ScheduledController,
-      env: Env,
-      ctx: ExecutionContext,
-    ): Promise<void> {
-      if (handler.scheduled) {
-        // TODO: provide client and charge
-        const enhancedCtx: StripeflareContext<T> = { ...ctx };
-        await handler.scheduled(controller, env, enhancedCtx);
-      }
-    },
-
-    async queue(
-      batch: MessageBatch,
-      env: Env,
-      ctx: ExecutionContext,
-    ): Promise<void> {
-      // TODO: provide client and charge
-      if (handler.queue) {
-        const enhancedCtx: StripeflareContext<T> = { ...ctx };
-        await handler.queue(batch, env, enhancedCtx);
-      }
-    },
-
-    async tail(
-      events: TraceItem[],
-      env: Env,
-      ctx: ExecutionContext,
-    ): Promise<void> {
-      if (handler.tail) {
-        // TODO: provide client and charge
-        const enhancedCtx: StripeflareContext<T> = { ...ctx };
-        await handler.tail(events, env, enhancedCtx);
-      }
-    },
+    return response;
   };
 }
+
+/** Helper function to charge a user based on their access_token */
+export const chargeUser = async (
+  env: Env,
+  ctx: ExecutionContext,
+  user_access_token: string,
+  migrations: any | undefined,
+  version: string,
+  amountCent: number,
+  allowNegativeBalance: boolean,
+) => {
+  const client = createClient({
+    doNamespace: env.DORM_NAMESPACE,
+    ctx,
+    migrations,
+    version,
+    name: user_access_token,
+    mirrorName: "aggregate",
+  });
+  if (!client || !user_access_token) {
+    return {
+      charged: false,
+      message: "User is not signed up yet and cannot be charged",
+    };
+  }
+
+  const update = allowNegativeBalance
+    ? client.exec(
+        "UPDATE users SET balance = balance - ? WHERE access_token = ?",
+        amountCent,
+        user_access_token,
+      )
+    : client.exec(
+        "UPDATE users SET balance = balance - ? WHERE access_token = ? and balance >= ?",
+        amountCent,
+        user_access_token,
+        amountCent,
+      );
+
+  await update.toArray();
+  const { rowsWritten } = update;
+  if (rowsWritten === 0) {
+    return { charged: false, message: "User balance too low" };
+  }
+
+  return { charged: true, message: "Successfully charged" };
+};
