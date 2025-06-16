@@ -165,3 +165,180 @@ Besides that, stripeflare standardises and uses the following response headers:
 - we have some well-thoguht-out logic in the stripe webhook, allowing login-by-payment; read more here: https://www.lmpify.com/httpsrawgithubus-20o3gj0
 - learn how to explore the data with outerbase here: https://www.lmpify.com/how-does-stripeflare-iqt4li0
 - It is a massive improvement upon [Cloudflare Sponsorware](https://github.com/janwilmake/cloudflare-sponsorware) which I made before as it dramatically reduces complexity while improving upon UX and DX.
+
+# Advanced Usage
+
+## Extending the Schema with Custom Migrations
+
+Stripeflare uses [DORM](https://github.com/janwilmake/dorm) for database management and supports custom migrations to extend the user schema beyond the default fields.
+
+### Required User Table Structure
+
+The `users` table must contain these **required columns** (all should be indexed for performance):
+
+```sql
+CREATE TABLE users (
+  access_token TEXT PRIMARY KEY,           -- Required: User's session token
+  balance INTEGER DEFAULT 0,               -- Required: User's balance in cents
+  name TEXT,                              -- Required: User's display name
+  email TEXT,                             -- Required: User's email address
+  verified_email TEXT,                    -- Required: Verified email for login-by-payment
+  verified_user_access_token TEXT,        -- Required: Links to verified user sessions
+  card_fingerprint TEXT,                  -- Required: Stripe card fingerprint for user matching
+  client_reference_id TEXT                -- Required: Encrypted reference for Stripe integration
+);
+```
+
+### Default Migrations
+
+Stripeflare includes these default migrations:
+
+```typescript
+const defaultMigrations = {
+  1: [
+    `CREATE TABLE users (
+      access_token TEXT PRIMARY KEY,
+      balance INTEGER DEFAULT 0,
+      name TEXT,
+      email TEXT,
+      verified_email TEXT,
+      verified_user_access_token TEXT,
+      card_fingerprint TEXT,
+      client_reference_id TEXT
+    )`,
+    `CREATE INDEX idx_users_balance ON users(balance)`,
+    `CREATE INDEX idx_users_name ON users(name)`,
+    `CREATE INDEX idx_users_email ON users(email)`,
+    `CREATE INDEX idx_users_verified_email ON users(verified_email)`,
+    `CREATE INDEX idx_users_card_fingerprint ON users(card_fingerprint)`,
+    `CREATE INDEX idx_users_client_reference_id ON users(client_reference_id)`,
+  ],
+};
+```
+
+### Extending with Custom Migrations
+
+You can extend the schema by providing custom migrations that include additional columns:
+
+```typescript
+import { withStripeflare, StripeUser } from "stripeflare";
+
+// Extend the StripeUser interface
+interface ExtendedUser extends StripeUser {
+  subscription_tier: string;
+  created_at: string;
+  last_login: string;
+  preferences: string; // JSON string
+}
+
+// Define custom migrations that include all required fields PLUS your extensions
+const customMigrations = {
+  1: [
+    // Base users table with ALL required fields + your custom fields
+    `CREATE TABLE users (
+      access_token TEXT PRIMARY KEY,
+      balance INTEGER DEFAULT 0,
+      name TEXT,
+      email TEXT,
+      verified_email TEXT,
+      verified_user_access_token TEXT,
+      card_fingerprint TEXT,
+      client_reference_id TEXT,
+      -- Your custom fields below
+      subscription_tier TEXT DEFAULT 'free',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      last_login TEXT,
+      preferences TEXT DEFAULT '{}'
+    )`,
+
+    // Required indexes (don't remove these)
+    `CREATE INDEX idx_users_balance ON users(balance)`,
+    `CREATE INDEX idx_users_name ON users(name)`,
+    `CREATE INDEX idx_users_email ON users(email)`,
+    `CREATE INDEX idx_users_verified_email ON users(verified_email)`,
+    `CREATE INDEX idx_users_card_fingerprint ON users(card_fingerprint)`,
+    `CREATE INDEX idx_users_client_reference_id ON users(client_reference_id)`,
+
+    // Your custom indexes
+    `CREATE INDEX idx_users_subscription_tier ON users(subscription_tier)`,
+    `CREATE INDEX idx_users_created_at ON users(created_at)`,
+  ],
+
+  // Future migrations for schema changes
+  2: [
+    `ALTER TABLE users ADD COLUMN api_key TEXT`,
+    `CREATE INDEX idx_users_api_key ON users(api_key)`,
+  ],
+};
+
+export default {
+  fetch: withStripeflare<ExtendedUser>(
+    async (request, env, ctx) => {
+      const { user, client } = ctx;
+
+      // Access your custom fields
+      console.log(`User tier: ${user.subscription_tier}`);
+
+      // Update custom fields
+      if (client) {
+        await client
+          .exec(
+            "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE access_token = ?",
+            user.access_token,
+          )
+          .toArray();
+      }
+
+      return new Response(`Hello ${user.name}!`);
+    },
+    {
+      customMigrations,
+      version: "1", // Increment to reset/migrate data
+    },
+  ),
+};
+```
+
+### Migration Best Practices
+
+1. **Always include required fields**: Never remove the required columns from your migrations
+2. **Keep required indexes**: The default indexes are essential for performance
+
+### Accessing Extended Data
+
+```typescript
+// Type-safe access to extended fields
+const { user, client } = ctx;
+
+// Read extended data
+const preferences = JSON.parse(user.preferences || "{}");
+
+// Update extended data
+if (client) {
+  await client
+    .exec(
+      "UPDATE users SET subscription_tier = ?, preferences = ? WHERE access_token = ?",
+      "premium",
+      JSON.stringify({ theme: "dark", notifications: true }),
+      user.access_token,
+    )
+    .toArray();
+}
+```
+
+### Database Architecture
+
+Stripeflare creates:
+
+- **Individual user databases**: One Durable Object per user (fast charging)
+- **Aggregate database**: Mirrors all user data for admin queries
+- **Automatic mirroring**: Changes sync between user DB and aggregate DB
+
+This architecture ensures lightning-fast user operations while maintaining queryable aggregate data.
+
+### Schema Limitations
+
+- **Required fields**: Cannot be removed or renamed
+- **Primary key**: `access_token` must remain the primary key
+- **Balance type**: Must remain `INTEGER` (cents)
+- **Token rotation**: Custom fields are preserved during token rotation
