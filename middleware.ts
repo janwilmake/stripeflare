@@ -6,6 +6,9 @@ import { decryptToken, encryptToken } from "./encrypt-decrypt-js";
 // Export DORM for it to be accessible
 export { DORM, createClient };
 
+const AGGREGATE_NAME = "admin-readonly";
+const DO_PREFIX = "user-";
+
 export interface Env {
   DORM_NAMESPACE: DurableObjectNamespace<DORM>;
   DB_SECRET: string;
@@ -111,6 +114,18 @@ const defaultMigraitons = {
     `CREATE INDEX idx_users_client_reference_id ON users(client_reference_id)`,
   ],
 };
+
+const getClientReferenceId = async (
+  access_token: string,
+  secret: string,
+): Promise<string> => {
+  return await encryptToken(access_token, secret);
+};
+
+const getDOName = (client_reference_id: string): string => {
+  return DO_PREFIX + client_reference_id;
+};
+
 export async function stripeBalanceMiddleware<T extends StripeUser>(
   request: Request,
   env: Env,
@@ -165,24 +180,33 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
 
   // Handle database API access
   if (path.startsWith("/db/")) {
-    const name = path.split("/")[2];
+    const nameParam = path.split("/")[2];
+
+    let doName: string;
+    let secret: string;
+
+    if (nameParam === AGGREGATE_NAME) {
+      doName = AGGREGATE_NAME;
+      secret = env.DB_SECRET;
+    } else {
+      // nameParam should be a client_reference_id
+      doName = getDOName(nameParam);
+      // Decrypt the client_reference_id to get the access_token for the secret
+      secret = await decryptToken(nameParam, env.DB_SECRET);
+    }
 
     const client = createClient({
       doNamespace: env.DORM_NAMESPACE,
       version,
       migrations: customMigrations,
       ctx,
-      name,
-      mirrorName: name === "aggregate" ? undefined : "aggregate",
+      name: doName,
+      mirrorName: nameParam === AGGREGATE_NAME ? undefined : AGGREGATE_NAME,
     });
 
     const middlewareResponse = await client.middleware(request, {
-      prefix: "/db/" + name,
-      secret:
-        // if its a user-specific db, the secret should be the access_token
-        name === "aggregate"
-          ? env.DB_SECRET
-          : await decryptToken(name, env.DB_SECRET),
+      prefix: "/db/" + nameParam,
+      secret,
     });
 
     if (middlewareResponse) {
@@ -359,7 +383,7 @@ async function handleStripeWebhook(
       version,
       migrations,
       ctx,
-      name: "aggregate",
+      name: AGGREGATE_NAME,
     });
 
     // check if we already have a user with this details
@@ -371,6 +395,8 @@ async function handleStripeWebhook(
       .one()
       .catch(() => null);
 
+    const doName = getDOName(client_reference_id);
+
     if (userFromAccessToken) {
       // existing user found at this access_token, just add balance
       const client = createClient({
@@ -378,8 +404,8 @@ async function handleStripeWebhook(
         version,
         migrations,
         ctx,
-        name: access_token,
-        mirrorName: "aggregate",
+        name: doName,
+        mirrorName: AGGREGATE_NAME,
       });
 
       await client
@@ -444,8 +470,8 @@ async function handleStripeWebhook(
         version,
         migrations,
         ctx,
-        name: access_token,
-        mirrorName: "aggregate",
+        name: doName,
+        mirrorName: AGGREGATE_NAME,
       });
 
       await client
@@ -482,8 +508,8 @@ async function handleStripeWebhook(
       version,
       migrations,
       ctx,
-      name: access_token,
-      mirrorName: "aggregate",
+      name: doName,
+      mirrorName: AGGREGATE_NAME,
     });
 
     await client
@@ -494,13 +520,19 @@ async function handleStripeWebhook(
       )
       .toArray();
 
+    const verifiedUserClientReferenceId = await getClientReferenceId(
+      verified_user_access_token,
+      env.DB_SECRET,
+    );
+    const verifiedUserDOName = getDOName(verifiedUserClientReferenceId);
+
     const verifiedUserClient = createClient({
       doNamespace: env.DORM_NAMESPACE,
       version,
       migrations,
       ctx,
-      name: verified_user_access_token,
-      mirrorName: "aggregate",
+      name: verifiedUserDOName,
+      mirrorName: AGGREGATE_NAME,
     });
 
     // Add the balance to the verified user
@@ -559,6 +591,7 @@ async function handleTokenRotation(
     newAccessToken,
     env.DB_SECRET,
   );
+  const newDOName = getDOName(newClientReferenceId);
 
   // Create new user client
   const newUserClient = createClient({
@@ -566,8 +599,8 @@ async function handleTokenRotation(
     version,
     migrations,
     ctx,
-    name: newAccessToken,
-    mirrorName: "aggregate",
+    name: newDOName,
+    mirrorName: AGGREGATE_NAME,
   });
 
   try {
@@ -659,14 +692,20 @@ async function handleUserSession<T extends StripeUser>(
 
   // Try to get existing user
   if (accessToken) {
-    // NB: this takes some ms for cold starts because a global lookup is done and new db is created for the accessToken, and happens for every user. Therefore there will be tons of tiny DOs without data, which we should clean up later.
+    const clientReferenceId = await getClientReferenceId(
+      accessToken,
+      env.DB_SECRET,
+    );
+    const doName = getDOName(clientReferenceId);
+
+    // NB: this takes some ms for cold starts because a global lookup is done and new db is created for the clientReferenceId, and happens for every user. Therefore there will be tons of tiny DOs without data, which we should clean up later.
     client = createClient({
       doNamespace: env.DORM_NAMESPACE,
       version,
       migrations,
       ctx,
-      name: accessToken,
-      mirrorName: "aggregate",
+      name: doName,
+      mirrorName: AGGREGATE_NAME,
     });
 
     try {
@@ -677,14 +716,21 @@ async function handleUserSession<T extends StripeUser>(
       if (user.verified_user_access_token) {
         // udpate access_token
         accessToken = user.verified_user_access_token;
+
         // we should switch to this one!!!
+        const verifiedClientReferenceId = await getClientReferenceId(
+          accessToken,
+          env.DB_SECRET,
+        );
+        const verifiedDOName = getDOName(verifiedClientReferenceId);
+
         client = createClient({
           doNamespace: env.DORM_NAMESPACE,
           version,
           migrations,
           ctx,
-          name: accessToken,
-          mirrorName: "aggregate",
+          name: verifiedDOName,
+          mirrorName: AGGREGATE_NAME,
         });
 
         user = await client
@@ -868,14 +914,21 @@ export const chargeUser = async (
   amountCent: number,
   allowNegativeBalance: boolean,
 ) => {
+  const clientReferenceId = await getClientReferenceId(
+    user_access_token,
+    env.DB_SECRET,
+  );
+  const doName = getDOName(clientReferenceId);
+
   const client = createClient({
     doNamespace: env.DORM_NAMESPACE,
     ctx,
     migrations,
     version,
-    name: user_access_token,
-    mirrorName: "aggregate",
+    name: doName,
+    mirrorName: AGGREGATE_NAME,
   });
+
   if (!client || !user_access_token) {
     return {
       charged: false,
