@@ -858,7 +858,9 @@ export function withStripeflare<
 
     // Create enhanced context with user and charge function
     const enhancedCtx: StripeflareContext<TUser> = {
-      ...ctx,
+      passThroughOnException: ctx.passThroughOnException,
+      props: ctx.props,
+      waitUntil: ctx.waitUntil,
       user,
       charge,
       client,
