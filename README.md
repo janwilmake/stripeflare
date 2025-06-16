@@ -30,9 +30,11 @@ The easiest way to install stripeflare **for existing projects**, is to use `wit
 import { withStripeflare, StripeUser, DORM } from "stripeflare";
 export { DORM };
 
+type Env = {};
+
 export default {
   // StripeUser can be extended
-  fetch: withStripeflare<StripeUser>(
+  fetch: withStripeflare<Env, StripeUser>(
     async (request, env, ctx) => {
       // ctx.user, ctx.client are now available
       const { user, registered } = ctx;
@@ -271,8 +273,10 @@ const customMigrations = {
   ],
 };
 
+type Env = {};
+
 export default {
-  fetch: withStripeflare<ExtendedUser>(
+  fetch: withStripeflare<Env, ExtendedUser>(
     async (request, env, ctx) => {
       const { user, client } = ctx;
 

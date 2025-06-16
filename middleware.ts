@@ -823,8 +823,8 @@ interface StripeflareConfig {
 }
 
 export function withStripeflare<
-  TUser extends StripeUser = StripeUser,
   TEnv = {},
+  TUser extends StripeUser = StripeUser,
 >(
   handler: StripeflareFetchHandler<TUser, TEnv>,
   config?: StripeflareConfig,

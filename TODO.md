@@ -2,6 +2,7 @@
 
 - Update everything to v0.0.26
 - ✅ `access_token`s shouldn't be in the DO names. Let this be `client_reference_id`s. Full reset.
+- ✅ Fixed type bugs
 - Add `.gitignore` to stripeflare template and use `X-Price`
 
 # Posts
@@ -11,10 +12,10 @@ New version post
 ```
 Stripeflare v0.0.26
 
-- Fixed errors occuring when you have several webhooks set up
+- Bugfixes
 - Added standard headers `X-Balance` and `X-Paymentlink`
-- You can now charge by just passing `X-Price`
-- Improved `create-stripeflare`. Added `.gitignore`
+- You can now charge by just passing `X-Price` header to the response!
+- Improved `create-stripeflare` template
 - Security enhancements
 
 ```
