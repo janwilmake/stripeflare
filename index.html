@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stripeflare - Lightning-Fast Monetization for Cloudflare Workers</title>
+    <meta name="description"
+        content="Add Stripe payments to your Cloudflare Worker with sub-20ms user balance operations. No auth required - users login by payment.">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #635bff;
+            --primary-dark: #5147e6;
+            --primary-light: #7c73ff;
+            --secondary: #ff6b35;
+            --accent: #00d4aa;
+            --bg: #0a0a0b;
+            --bg-secondary: #1a1a1b;
+            --bg-tertiary: #2d2d30;
+            --text: #ffffff;
+            --text-secondary: #b3b3b3;
+            --text-tertiary: #808080;
+            --border: #333336;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --gradient: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            --gradient-secondary: linear-gradient(135deg, var(--secondary) 0%, #ff8f65 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(10, 10, 11, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            z-index: 1000;
+            padding: 1rem 0;
+        }
+
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text);
+            text-decoration: none;
+        }
+
+        .logo i {
+            color: var(--primary);
+            margin-right: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 120px 2rem 80px;
+            text-align: center;
+            background: radial-gradient(ellipse at center, rgba(99, 91, 255, 0.1) 0%, transparent 70%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            z-index: -1;
+        }
+
+        .hero-content {
+            max-width: 800px;
+            margin: 0 auto;
+            z-index: 1;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+        }
+
+        .hero .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .speed-badge {
+            display: inline-flex;
+            align-items: center;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            gap: 0.5rem;
+        }
+
+        .speed-badge i {
+            color: var(--accent);
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 3rem;
+        }
+
+        .btn {
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--gradient);
+            color: white;
+            box-shadow: 0 8px 32px rgba(99, 91, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(99, 91, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-secondary);
+            border-color: var(--primary);
+        }
+
+        /* Code Preview */
+        .code-preview {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 3rem auto 0;
+            max-width: 600px;
+            text-align: left;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-preview::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--gradient);
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .code-title {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .copy-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 100px 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            background: var(--gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Performance Demo */
+        .demo-section {
+            padding: 100px 2rem;
+            background: var(--bg-secondary);
+            text-align: center;
+        }
+
+        .demo-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .demo-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 3rem;
+            margin-top: 3rem;
+            position: relative;
+        }
+
+        .demo-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--gradient);
+            border-radius: 16px 16px 0 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            display: block;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Comparison Section */
+        .comparison {
+            padding: 100px 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .comparison-table {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 3rem;
+        }
+
+        .comparison-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comparison-table th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+        }
+
+        .comparison-table .stripeflare {
+            background: rgba(99, 91, 255, 0.1);
+        }
+
+        .check {
+            color: var(--success);
+        }
+
+        .cross {
+            color: var(--secondary);
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 100px 2rem;
+            text-align: center;
+            background: var(--bg-secondary);
+        }
+
+        .cta-content {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .cta-section h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        /* Footer */
+        footer {
+            padding: 50px 2rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-tertiary);
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .footer-links a {
+            color: var(--text-tertiary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--text);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        /* Animations */
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .hero-content {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .feature-card:nth-child(odd) {
+            animation: float 8s ease-in-out infinite;
+        }
+
+        .feature-card:nth-child(even) {
+            animation: float 8s ease-in-out infinite 1s;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header>
+        <nav>
+            <a href="#" class="logo">
+                <i class="fas fa-bolt"></i>
+                Stripeflare
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="/demo">Demo</a></li>
+                <li><a href="https://github.com/janwilmake/stripeflare">GitHub</a></li>
+                <li><a href="https://github.com/janwilmake/stripeflare">Docs</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="speed-badge">
+                <i class="fas fa-tachometer-alt"></i>
+                Sub-20ms balance operations
+            </div>
+
+            <h1>Lightning-Fast Monetization for Cloudflare Workers</h1>
+
+            <p class="subtitle">
+                Add Stripe payments to your Cloudflare Worker with blazing-fast user balance operations.
+                No traditional auth required – users login by payment.
+            </p>
+
+            <div class="cta-buttons">
+                <a href="https://github.com/janwilmake/stripeflare" class="btn btn-primary">
+                    <i class="fas fa-rocket"></i>
+                    Get Started
+                </a>
+                <a href="/demo" class="btn btn-secondary">
+                    <i class="fas fa-play"></i>
+                    View Demo
+                </a>
+            </div>
+
+            <div class="code-preview">
+                <div class="code-header">
+                    <span class="code-title">One-line integration</span>
+                    <button class="copy-btn" onclick="copyToClipboard()">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                </div>
+                <code id="code-snippet">npx create-stripeflare</code>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="section-header">
+            <h2>Why Stripeflare?</h2>
+            <p>Built specifically for edge computing with performance and developer experience in mind</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <h3>Lightning Performance</h3>
+                <p>User-segmented databases with aggregate mirroring deliver sub-20ms balance operations using
+                    Cloudflare Durable Objects.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-user-slash"></i>
+                </div>
+                <h3>Zero Auth Friction</h3>
+                <p>No signup forms or password management. Users authenticate purely through Stripe payments – the
+                    payment IS the login.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-credit-card"></i>
+                </div>
+                <h3>Login by Payment</h3>
+                <p>Unique feature: users can access their account from any device by making a payment with the same
+                    payment method.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-code"></i>
+                </div>
+                <h3>One-Line Integration</h3>
+                <p>Wrap your handler with withStripeflare() and you're done. No complex setup or configuration required.
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-globe"></i>
+                </div>
+                <h3>Edge-Native</h3>
+                <p>Built specifically for Cloudflare Workers, not adapted from traditional server architectures.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-database"></i>
+                </div>
+                <h3>ACID Compliant</h3>
+                <p>Powered by DORM with SQLite under the hood, ensuring data consistency and reliability at the edge.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance Demo -->
+    <section class="demo-section" id="demo">
+        <div class="demo-container">
+            <div class="section-header">
+                <h2>Performance That Speaks</h2>
+                <p>See how Stripeflare compares to traditional payment + auth solutions</p>
+            </div>
+
+            <div class="demo-card">
+                <div class="stats-grid">
+                    <div class="stat">
+                        <span class="stat-number">~20ms</span>
+                        <div class="stat-label">Balance Check</div>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">~15ms</span>
+                        <div class="stat-label">Charge User</div>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">0</span>
+                        <div class="stat-label">Auth Steps</div>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">1</span>
+                        <div class="stat-label">Line of Code</div>
+                    </div>
+                </div>
+
+                <a href="/demo" class="btn btn-primary">
+                    <i class="fas fa-external-link-alt"></i>
+                    Try Live Demo
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Comparison Table -->
+    <section class="comparison">
+        <div class="section-header">
+            <h2>How It Compares</h2>
+            <p>Stripeflare vs traditional solutions</p>
+        </div>
+
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Stripeflare</th>
+                        <th>Auth0 + Stripe</th>
+                        <th>Traditional Setup</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="stripeflare">
+                        <td>Setup Time</td>
+                        <td><i class="fas fa-check check"></i> 1 minute</td>
+                        <td><i class="fas fa-times cross"></i> Hours</td>
+                        <td><i class="fas fa-times cross"></i> Days</td>
+                    </tr>
+                    <tr>
+                        <td>Balance Check Speed</td>
+                        <td><i class="fas fa-check check"></i> ~20ms</td>
+                        <td><i class="fas fa-times cross"></i> ~200ms</td>
+                        <td><i class="fas fa-times cross"></i> ~500ms</td>
+                    </tr>
+                    <tr class="stripeflare">
+                        <td>Auth Required</td>
+                        <td><i class="fas fa-check check"></i> Payment only</td>
+                        <td><i class="fas fa-times cross"></i> Full signup flow</td>
+                        <td><i class="fas fa-times cross"></i> Complex setup</td>
+                    </tr>
+                    <tr>
+                        <td>Edge Computing</td>
+                        <td><i class="fas fa-check check"></i> Native</td>
+                        <td><i class="fas fa-times cross"></i> Adapted</td>
+                        <td><i class="fas fa-times cross"></i> Not optimized</td>
+                    </tr>
+                    <tr class="stripeflare">
+                        <td>Micro-transactions</td>
+                        <td><i class="fas fa-check check"></i> Optimized</td>
+                        <td><i class="fas fa-times cross"></i> Expensive</td>
+                        <td><i class="fas fa-times cross"></i> Slow</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="cta-content">
+            <h2>Ready to monetize at the speed of light?</h2>
+            <p>Join developers who are building the future of edge monetization with Stripeflare.</p>
+
+            <div class="cta-buttons">
+                <a href="https://github.com/janwilmake/stripeflare" class="btn btn-primary">
+                    <i class="fab fa-github"></i>
+                    Star on GitHub
+                </a>
+                <a href="https://github.com/janwilmake/stripeflare" class="btn btn-secondary">
+                    <i class="fas fa-book"></i>
+                    Read Docs
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="logo">
+                <i class="fas fa-bolt"></i>
+                Stripeflare
+            </div>
+
+            <ul class="footer-links">
+                <li><a href="https://github.com/janwilmake/stripeflare">GitHub</a></li>
+                <li><a href="https://github.com/janwilmake/stripeflare">Documentation</a></li>
+                <li><a href="/demo">Demo</a></li>
+                <li><a href="https://x.com/janwilmake">Twitter</a></li>
+            </ul>
+
+            <div>
+                <p>&copy; 2025 Stripeflare. Built with ⚡ by <a href="https://x.com/janwilmake"
+                        style="color: var(--primary);">@janwilmake</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function copyToClipboard() {
+            const code = document.getElementById('code-snippet').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                btn.style.background = 'var(--success)';
+                btn.style.color = 'white';
+
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = 'var(--bg-tertiary)';
+                    btn.style.color = 'var(--text-secondary)';
+                }, 2000);
+            });
+        }
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Header background on scroll
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 100) {
+                header.style.background = 'rgba(10, 10, 11, 0.98)';
+            } else {
+                header.style.background = 'rgba(10, 10, 11, 0.95)';
+            }
+        });
+    </script>
+</body>
+
+</html>

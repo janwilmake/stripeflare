@@ -34,12 +34,19 @@ export default {
   // StripeUser can be extended
   fetch: withStripeflare<StripeUser>(
     async (request, env, ctx) => {
-      // ctx.user, ctx.charge, ctx.client are now available
-      const { user, charge, registered } = ctx;
+      // ctx.user, ctx.client are now available
+      const { user, registered } = ctx;
 
       if (request.url.endsWith("/charge")) {
-        const result = await charge(1, false); // charge 1 cent
-        return new Response(JSON.stringify(result));
+        if (user.balance < 1) {
+          return new Response("Payment Required", { status: 402 });
+        }
+        return new Response(JSON.stringify(result), {
+          headers: {
+            // Charges one cent
+            "X-Price": "1",
+          },
+        });
       }
 
       return new Response(`Hello ${user.name || "Anonymous"}`);
@@ -128,6 +135,12 @@ In your static files you can also access these:
 - `GET /me` returns `{paymentLink,client_reference_id, balance, name, email, card_fingerprint, verified_email }` which can be useful to show these details fast. Requires cookie!
 - `POST /rotate-token` (to rotate the token, instable, may be removed in future version)
 - `/db/*` (to perform direct queries to your databases) - for DORM integration with outerbase, see DORM Docs
+
+Besides that, stripeflare standardises and uses the following response headers:
+
+- You can pass `X-Price` to charge users automatically (amount in cents)
+- Stripeflare passes `X-PaymentLink` with the paymentlink for the user
+- Stripeflare passes `X-Balance` with the balance of the current user in cents
 
 # About
 

@@ -327,6 +327,7 @@ async function handleStripeWebhook(
       customer,
       customer_creation,
       customer_email,
+      payment_link,
     } = session;
 
     if (!client_reference_id) {
@@ -337,13 +338,20 @@ async function handleStripeWebhook(
       return new Response("Missing customer_details.email", { status: 400 });
     }
 
+    if (!env.DB_SECRET) {
+      return new Response("Missing DB_SECRET", { status: 400 });
+    }
+
     let access_token: string | undefined = undefined;
     try {
       access_token = await decryptToken(client_reference_id, env.DB_SECRET);
     } catch (e) {
-      return new Response("Could not decrypt client_reference_id", {
-        status: 400,
-      });
+      return new Response(
+        "Could not decrypt client_reference_id. Assuming this event is not meant for this webhook.",
+        {
+          status: 200,
+        },
+      );
     }
 
     const aggregateClient = createClient({
@@ -815,6 +823,27 @@ export function withStripeflare<T extends StripeUser = StripeUser>(
       Object.entries(headers).forEach(([key, value]) => {
         newHeaders.set(key, value);
       });
+
+      const price =
+        response.headers.get("x-price") &&
+        !isNaN(Number(response.headers.get("x-price")))
+          ? Number(response.headers.get("x-price"))
+          : undefined;
+
+      let balance = user.balance;
+
+      if (price && price > 0) {
+        // charge user and update balance
+        const { charged, message } = await charge(price, true);
+        if (charged) {
+          balance = balance - price;
+        } else {
+          console.error("Unexpected: Could not charge user!", message);
+        }
+      }
+
+      newHeaders.set("x-payment-link", paymentLink);
+      newHeaders.set("x-balance", String(balance));
 
       return new Response(response.body, {
         status: response.status,

@@ -3,6 +3,7 @@
   "dev": { "port": 3000 },
   "compatibility_date": "2025-04-17",
   "main": "./template-with-stripeflare.ts",
+  "assets": { "directory": "./" },
   "durable_objects": {
     "bindings": [{ "name": "DORM_NAMESPACE", "class_name": "DORM" }]
   },
