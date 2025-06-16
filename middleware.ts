@@ -806,32 +806,38 @@ interface StripeflareContext<T extends StripeUser = StripeUser>
   }>;
 }
 
-interface StripeflareFetchHandler<T extends StripeUser = StripeUser> {
-  (request: Request, env: Env, ctx: StripeflareContext<T>):
+interface StripeflareFetchHandler<
+  T extends StripeUser = StripeUser,
+  TEnv = {},
+> {
+  (request: Request, env: Env & TEnv, ctx: StripeflareContext<T>):
     | Response
     | Promise<Response>;
 }
 
-interface StripeflareConfig<T extends StripeUser = StripeUser> {
+interface StripeflareConfig {
   /** Optional: can add any other data here but ensure to not remove any of the required properties in the user table */
   customMigrations?: Migrations;
   /**  changing the version will "reset" the dbs by using other prefix to the DO-names */
   version?: string;
 }
 
-export function withStripeflare<T extends StripeUser = StripeUser>(
-  handler: StripeflareFetchHandler<T>,
-  config?: StripeflareConfig<T>,
-): ExportedHandlerFetchHandler<Env> {
+export function withStripeflare<
+  TUser extends StripeUser = StripeUser,
+  TEnv = {},
+>(
+  handler: StripeflareFetchHandler<TUser, TEnv>,
+  config?: StripeflareConfig,
+): ExportedHandlerFetchHandler<Env & TEnv> {
   const { customMigrations, version } = config || {};
 
   return async (
     request: Request,
-    env: Env,
+    env: TEnv & Env,
     ctx: ExecutionContext,
   ): Promise<Response> => {
     // Apply the stripe balance middleware
-    const middlewareResult = await stripeBalanceMiddleware<T>(
+    const middlewareResult = await stripeBalanceMiddleware<TUser>(
       request,
       env,
       ctx,
@@ -851,7 +857,7 @@ export function withStripeflare<T extends StripeUser = StripeUser>(
       middlewareResult;
 
     // Create enhanced context with user and charge function
-    const enhancedCtx: StripeflareContext<T> = {
+    const enhancedCtx: StripeflareContext<TUser> = {
       ...ctx,
       user,
       charge,
