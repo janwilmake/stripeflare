@@ -293,18 +293,6 @@
                 document.getElementById('speed').innerHTML = '<i class="fas fa-tachometer-alt"></i> ' + speed + "ms";
                 document.getElementById('client_reference_id').innerText = client_reference_id.slice(0, 20) + "...";
 
-                // Display charged amount if available
-                if (charged !== undefined) {
-                    document.getElementById('charged').innerHTML = '<i class="fas fa-credit-card"></i> $' + charged / 100;
-                    document.getElementById('charged-row').style.display = 'flex';
-                }
-
-                // Display message if available
-                if (message) {
-                    document.getElementById('message-value').innerText = message;
-                    document.getElementById('message-container').style.display = 'block';
-                }
-
                 // Apply privacy settings
                 updatePrivacyUI();
             } else {

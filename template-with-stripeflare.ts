@@ -8,7 +8,6 @@ interface MyUser extends StripeUser {}
 export default {
   fetch: withStripeflare<MyUser>(async (request, env, ctx) => {
     const t = Date.now();
-    const { charged, message } = await ctx.charge(1, false);
     const { access_token, verified_user_access_token, ...rest } = ctx.user;
     const paymentLink = env.STRIPE_PAYMENT_LINK;
     const speed = Date.now() - t;
@@ -17,14 +16,12 @@ export default {
       `<script>window.data = ${JSON.stringify({
         ...rest,
         speed,
-        charged,
-        message,
         paymentLink,
       })};</script></head>`,
     );
 
     return new Response(modifiedHtml, {
-      headers: { "Content-Type": "text/html" },
+      headers: { "Content-Type": "text/html", "X-Price": "1" },
     });
   }),
 };
