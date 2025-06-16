@@ -6,7 +6,7 @@ Stripeflare is middleware that adds Stripe Payments to a Cloudflare Worker and h
 
 **⚡️ Lightning Fast** | **🔑 ACID Compliant** | **☁️ Cloudflare Optimised** | **🍬 Minimal Setup**
 
-# Automatic Installation
+# Automatic Installation.
 
 ```sh
 npx create-stripeflare
