@@ -1,4 +1,4 @@
-# Encrypthon secret rotation
+# Encryp secret rotation
 
 problem 1 (RESOLVED): we might loose the original DB_SECRET or might be required to rotate it incase it gets compromised
 
@@ -8,7 +8,7 @@ This is solved now by keeping the access_token as the only source of truth for t
 
 # Access tokens in db
 
-problem 2: we don't want to use `access_tokens` as names or store them into the db directly (users table primary key is now `access_token`). instead, we should have another secret (or the same, twice) and store the encrypted value as `access_token_hash` and use that as the primary key, instead.
+Problem 2: we don't want to use `access_tokens` as names or store them into the db directly (users table primary key is now `access_token`). instead, we should have another secret (or the same, twice) and store the encrypted value as `access_token_hash` and use that as the primary key, instead.
 
 ![](security.drawio.png)
 

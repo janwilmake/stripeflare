@@ -1,7 +1,7 @@
 # TODO
 
 - Update everything to v0.0.26
-- `access_token`s shouldn't be in the DO names. Let this be `client_reference_id`s. Full reset
+- ✅ `access_token`s shouldn't be in the DO names. Let this be `client_reference_id`s. Full reset.
 - Add `.gitignore` to stripeflare template and use `X-Price`
 
 # Posts
