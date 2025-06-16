@@ -24,3 +24,11 @@ Also, found a way use stripeflare to login by payment. A unauthenticated user ca
 - Lots of bug fixes and usability improvements
 - added initial implementation of `withStripeflare`
 - improved README by a lot!
+
+# June 16th, 2025 - v0.0.32
+
+- ✅ `access_token`s shouldn't be in the DO names. Let this be `client_reference_id`s. Full reset.
+- ✅ Fixed type bugs
+- ✅ Add `.gitignore` to stripeflare template and use `X-Price`
+- ✅ Update everything to v0.0.32
+- ✅ Post: https://x.com/janwilmake/status/1934600015348994498
