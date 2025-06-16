@@ -6,6 +6,15 @@ Stripeflare is middleware that adds Stripe Payments to a Cloudflare Worker and h
 
 **⚡️ Lightning Fast** | **🔑 ACID Compliant** | **☁️ Cloudflare Optimised** | **🍬 Minimal Setup**
 
+Stripeflare is meant to make it easy to create Agent-friendly SaaS products.
+
+| Aspect             | Traditional SaaS                  | Agent-Friendly SaaS                    |
+| ------------------ | --------------------------------- | -------------------------------------- |
+| **Authentication** | Username/password, OAuth, SSO     | Payment-based authentication, API keys |
+| **User Journey**   | Sign up → Trial → Subscribe → Use | Pay per use → Immediate access         |
+| **Billing Model**  | Monthly/annual subscriptions      | Pay-per-request, usage-based           |
+| **User Interface** | UI-First                          | 1:1 JSON API, Markdown API & UI        |
+
 # Automatic Installation.
 
 ```sh
