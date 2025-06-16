@@ -4,11 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stripeflare - Lightning-Fast Monetization for Cloudflare Workers</title>
+    <title>Stripeflare - Agent-Friendly SaaS in 60 Seconds</title>
     <meta name="description"
-        content="Add Stripe payments to your Cloudflare Worker with sub-20ms user balance operations. No auth required - users login by payment.">
+        content="Create payment-authenticated APIs in 60 seconds. No signup forms, no user management - just pay and use. Perfect for AI agents.">
 
-    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -17,7 +16,6 @@
         :root {
             --primary: #635bff;
             --primary-dark: #5147e6;
-            --primary-light: #7c73ff;
             --secondary: #ff6b35;
             --accent: #00d4aa;
             --bg: #0a0a0b;
@@ -29,8 +27,8 @@
             --border: #333336;
             --success: #10b981;
             --warning: #f59e0b;
-            --gradient: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            --gradient-secondary: linear-gradient(135deg, var(--secondary) 0%, #ff8f65 100%);
+            --gradient: linear-gradient(135deg, var(--primary) 0%, #7c73ff 100%);
+            --code-bg: #1e1e1e;
         }
 
         * {
@@ -60,7 +58,7 @@
         }
 
         nav {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             display: flex;
             justify-content: space-between;
@@ -104,29 +102,16 @@
         .hero {
             padding: 120px 2rem 80px;
             text-align: center;
-            background: radial-gradient(ellipse at center, rgba(99, 91, 255, 0.1) 0%, transparent 70%);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            position: relative;
-        }
-
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
-            z-index: -1;
+            background: radial-gradient(ellipse at center, rgba(99, 91, 255, 0.1) 0%, transparent 70%);
         }
 
         .hero-content {
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
-            z-index: 1;
         }
 
         .hero h1 {
@@ -143,34 +128,308 @@
         .hero .subtitle {
             font-size: 1.25rem;
             color: var(--text-secondary);
-            margin-bottom: 2rem;
-            max-width: 600px;
+            margin-bottom: 3rem;
+            max-width: 700px;
             margin-left: auto;
             margin-right: auto;
         }
 
-        .speed-badge {
-            display: inline-flex;
-            align-items: center;
+        .quick-start {
             background: var(--bg-secondary);
             border: 1px solid var(--border);
-            padding: 0.5rem 1rem;
-            border-radius: 50px;
-            margin-bottom: 2rem;
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 3rem auto;
+            max-width: 600px;
+            text-align: left;
+        }
+
+        .quick-start h3 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+            font-size: 1.1rem;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+            gap: 1rem;
+        }
+
+        .step-number {
+            background: var(--gradient);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-description {
+            color: var(--text-secondary);
             font-size: 0.9rem;
+        }
+
+        .code-block {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            margin: 1rem 0;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Comparison Section */
+        .comparison {
+            padding: 100px 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            margin-top: 3rem;
+        }
+
+        .comparison-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .comparison-card.agent-friendly {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, rgba(99, 91, 255, 0.1) 0%, var(--bg-secondary) 100%);
+        }
+
+        .comparison-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
             gap: 0.5rem;
         }
 
-        .speed-badge i {
-            color: var(--accent);
+        .comparison-card.agent-friendly h3 {
+            color: var(--primary);
         }
 
-        .cta-buttons {
+        .comparison-card.traditional h3 {
+            color: var(--text-secondary);
+        }
+
+        .feature-list {
+            list-style: none;
+            margin: 1.5rem 0;
+        }
+
+        .feature-list li {
+            margin-bottom: 0.8rem;
             display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 3rem;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feature-list .icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .feature-list .check {
+            color: var(--success);
+        }
+
+        .feature-list .cross {
+            color: var(--secondary);
+        }
+
+        /* Code Demo Section */
+        .demo-section {
+            padding: 100px 2rem;
+            background: var(--bg-secondary);
+        }
+
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            margin-top: 3rem;
+        }
+
+        .demo-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+
+        .demo-card h4 {
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .demo-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .terminal {
+            background: #000;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #333;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot.red {
+            background: #ff605c;
+        }
+
+        .dot.yellow {
+            background: #ffbd44;
+        }
+
+        .dot.green {
+            background: #00ca4e;
+        }
+
+        .terminal-content {
+            color: #fff;
+            line-height: 1.4;
+        }
+
+        .prompt {
+            color: #00ca4e;
+        }
+
+        .command {
+            color: #ffffff;
+        }
+
+        .output {
+            color: #888;
+            margin: 0.5rem 0;
+        }
+
+        .highlight {
+            color: var(--primary);
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 100px 2rem;
+            text-align: center;
+        }
+
+        .cta-content {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .cta-section h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
         }
 
         .btn {
@@ -202,263 +461,12 @@
             background: transparent;
             color: var(--text);
             border: 1px solid var(--border);
+            margin-left: 1rem;
         }
 
         .btn-secondary:hover {
             background: var(--bg-secondary);
             border-color: var(--primary);
-        }
-
-        /* Code Preview */
-        .code-preview {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin: 3rem auto 0;
-            max-width: 600px;
-            text-align: left;
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 0.9rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .code-preview::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: var(--gradient);
-        }
-
-        .code-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .code-title {
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .copy-btn {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .copy-btn:hover {
-            background: var(--primary);
-            color: white;
-        }
-
-        /* Features Section */
-        .features {
-            padding: 100px 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        .section-header h2 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-        }
-
-        .section-header p {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-top: 3rem;
-        }
-
-        .feature-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 2rem;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--primary);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .feature-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 12px;
-            background: var(--gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-            font-size: 1.5rem;
-            color: white;
-        }
-
-        .feature-card h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-
-        .feature-card p {
-            color: var(--text-secondary);
-            line-height: 1.6;
-        }
-
-        /* Performance Demo */
-        .demo-section {
-            padding: 100px 2rem;
-            background: var(--bg-secondary);
-            text-align: center;
-        }
-
-        .demo-container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .demo-card {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 3rem;
-            margin-top: 3rem;
-            position: relative;
-        }
-
-        .demo-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--gradient);
-            border-radius: 16px 16px 0 0;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 2rem;
-            margin: 2rem 0;
-        }
-
-        .stat {
-            text-align: center;
-        }
-
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--primary);
-            display: block;
-        }
-
-        .stat-label {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-top: 0.5rem;
-        }
-
-        /* Comparison Section */
-        .comparison {
-            padding: 100px 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .comparison-table {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            margin-top: 3rem;
-        }
-
-        .comparison-table table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .comparison-table th,
-        .comparison-table td {
-            padding: 1rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .comparison-table th {
-            background: var(--bg-tertiary);
-            font-weight: 600;
-        }
-
-        .comparison-table .stripeflare {
-            background: rgba(99, 91, 255, 0.1);
-        }
-
-        .check {
-            color: var(--success);
-        }
-
-        .cross {
-            color: var(--secondary);
-        }
-
-        /* CTA Section */
-        .cta-section {
-            padding: 100px 2rem;
-            text-align: center;
-            background: var(--bg-secondary);
-        }
-
-        .cta-content {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .cta-section h2 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-        }
-
-        .cta-section p {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
         }
 
         /* Footer */
@@ -501,54 +509,25 @@
                 display: none;
             }
 
-            .cta-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .btn {
-                width: 100%;
-                max-width: 300px;
-                justify-content: center;
-            }
-
-            .features-grid {
+            .comparison-grid {
                 grid-template-columns: 1fr;
+                gap: 2rem;
             }
 
-            .stats-grid {
+            .demo-grid {
                 grid-template-columns: 1fr;
+                gap: 2rem;
             }
 
             .footer-content {
                 flex-direction: column;
                 text-align: center;
             }
-        }
 
-        /* Animations */
-        @keyframes float {
-
-            0%,
-            100% {
-                transform: translateY(0px);
+            .btn-secondary {
+                margin-left: 0;
+                margin-top: 1rem;
             }
-
-            50% {
-                transform: translateY(-10px);
-            }
-        }
-
-        .hero-content {
-            animation: float 6s ease-in-out infinite;
-        }
-
-        .feature-card:nth-child(odd) {
-            animation: float 8s ease-in-out infinite;
-        }
-
-        .feature-card:nth-child(even) {
-            animation: float 8s ease-in-out infinite 1s;
         }
     </style>
 </head>
@@ -562,7 +541,7 @@
                 Stripeflare
             </a>
             <ul class="nav-links">
-                <li><a href="#features">Features</a></li>
+                <li><a href="#how-it-works">How it Works</a></li>
                 <li><a href="/demo">Demo</a></li>
                 <li><a href="https://github.com/janwilmake/stripeflare">GitHub</a></li>
                 <li><a href="https://github.com/janwilmake/stripeflare">Docs</a></li>
@@ -573,207 +552,232 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <div class="speed-badge">
-                <i class="fas fa-tachometer-alt"></i>
-                Sub-20ms balance operations
-            </div>
-
-            <h1>Lightning-Fast Monetization for Cloudflare Workers</h1>
-
+            <h1>Agent-Friendly SaaS<br>in 60 Seconds</h1>
             <p class="subtitle">
-                Add Stripe payments to your Cloudflare Worker with blazing-fast user balance operations.
-                No traditional auth required – users login by payment.
+                Skip the signup forms. Skip user management. Users pay → get API access → start using immediately.
+                Perfect for AI agents and micro-transactions.
             </p>
 
-            <div class="cta-buttons">
-                <a href="https://github.com/janwilmake/stripeflare" class="btn btn-primary">
-                    <i class="fas fa-rocket"></i>
-                    Get Started
-                </a>
-                <a href="/demo" class="btn btn-secondary">
-                    <i class="fas fa-play"></i>
-                    View Demo
-                </a>
-            </div>
+            <div class="quick-start">
+                <h3><i class="fas fa-rocket"></i> Get Started in 3 Steps</h3>
 
-            <div class="code-preview">
-                <div class="code-header">
-                    <span class="code-title">One-line integration</span>
-                    <button class="copy-btn" onclick="copyToClipboard()">
-                        <i class="fas fa-copy"></i> Copy
-                    </button>
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <div class="step-title">Run the installer</div>
+                        <div class="step-description">One command creates everything</div>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copyCode(this)">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <pre>npx create-stripeflare</pre>
+                        </div>
+                    </div>
                 </div>
-                <code id="code-snippet">npx create-stripeflare</code>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <div class="step-title">Configure your service</div>
+                        <div class="step-description">Enter your domain, pricing, and title</div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <div class="step-title">Done!</div>
+                        <div class="step-description">Your payment-authenticated API is live</div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
 
-    <!-- Features Section -->
-    <section class="features" id="features">
+    <!-- Comparison Section -->
+    <section class="comparison" id="how-it-works">
         <div class="section-header">
-            <h2>Why Stripeflare?</h2>
-            <p>Built specifically for edge computing with performance and developer experience in mind</p>
+            <h2>Traditional vs Agent-Friendly SaaS</h2>
+            <p>See the difference in user experience and implementation complexity</p>
         </div>
 
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-bolt"></i>
+        <div class="comparison-grid">
+            <div class="comparison-card traditional">
+                <h3>
+                    <i class="fas fa-user-cog"></i>
+                    Traditional SaaS
+                </h3>
+                <ul class="feature-list">
+                    <li>
+                        <i class="fas fa-times cross icon"></i>
+                        Username/password signup
+                    </li>
+                    <li>
+                        <i class="fas fa-times cross icon"></i>
+                        Email verification
+                    </li>
+                    <li>
+                        <i class="fas fa-times cross icon"></i>
+                        Complex auth flow
+                    </li>
+                    <li>
+                        <i class="fas fa-times cross icon"></i>
+                        Monthly subscriptions
+                    </li>
+                    <li>
+                        <i class="fas fa-times cross icon"></i>
+                        UI-first design
+                    </li>
+                    <li>
+                        <i class="fas fa-times cross icon"></i>
+                        Slow setup (days)
+                    </li>
+                </ul>
+
+                <div class="code-block">
+                    <pre><span class="prompt">$</span> <span class="command">curl api.example.com/generate</span>
+<span class="output">{"error": "Authentication required"}</span>
+
+<span class="prompt">$</span> <span class="comment"># User must:</span>
+<span class="comment"># 1. Visit website</span>
+<span class="comment"># 2. Create account</span>
+<span class="comment"># 3. Verify email</span>
+<span class="comment"># 4. Subscribe</span>
+<span class="comment"># 5. Get API key</span></pre>
                 </div>
-                <h3>Lightning Performance</h3>
-                <p>User-segmented databases with aggregate mirroring deliver sub-20ms balance operations using
-                    Cloudflare Durable Objects.</p>
             </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-user-slash"></i>
-                </div>
-                <h3>Zero Auth Friction</h3>
-                <p>No signup forms or password management. Users authenticate purely through Stripe payments – the
-                    payment IS the login.</p>
-            </div>
+            <div class="comparison-card agent-friendly">
+                <h3>
+                    <i class="fas fa-robot"></i>
+                    Agent-Friendly SaaS
+                </h3>
+                <ul class="feature-list">
+                    <li>
+                        <i class="fas fa-check check icon"></i>
+                        Payment-only authentication
+                    </li>
+                    <li>
+                        <i class="fas fa-check check icon"></i>
+                        Login by payment
+                    </li>
+                    <li>
+                        <i class="fas fa-check check icon"></i>
+                        Immediate access
+                    </li>
+                    <li>
+                        <i class="fas fa-check check icon"></i>
+                        Pay-per-use
+                    </li>
+                    <li>
+                        <i class="fas fa-check check icon"></i>
+                        API-first design
+                    </li>
+                    <li>
+                        <i class="fas fa-check check icon"></i>
+                        60-second setup
+                    </li>
+                </ul>
 
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-credit-card"></i>
-                </div>
-                <h3>Login by Payment</h3>
-                <p>Unique feature: users can access their account from any device by making a payment with the same
-                    payment method.</p>
-            </div>
+                <div class="code-block">
+                    <pre><span class="prompt">$</span> <span class="command">curl api.example.com/generate</span>
+<span class="output">{"paymentLink": "pay.stripe.com/xyz"}</span>
 
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-code"></i>
+<span class="prompt">$</span> <span class="comment"># User pays once, gets access forever</span>
+<span class="prompt">$</span> <span class="command">curl api.example.com/generate \
+  -H "Cookie: access_token=abc123"</span>
+<span class="highlight">{"result": "Generated content"}</span></pre>
                 </div>
-                <h3>One-Line Integration</h3>
-                <p>Wrap your handler with withStripeflare() and you're done. No complex setup or configuration required.
-                </p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-globe"></i>
-                </div>
-                <h3>Edge-Native</h3>
-                <p>Built specifically for Cloudflare Workers, not adapted from traditional server architectures.</p>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-database"></i>
-                </div>
-                <h3>ACID Compliant</h3>
-                <p>Powered by DORM with SQLite under the hood, ensuring data consistency and reliability at the edge.
-                </p>
             </div>
         </div>
     </section>
 
-    <!-- Performance Demo -->
-    <section class="demo-section" id="demo">
+    <!-- Demo Section -->
+    <section class="demo-section">
         <div class="demo-container">
             <div class="section-header">
-                <h2>Performance That Speaks</h2>
-                <p>See how Stripeflare compares to traditional payment + auth solutions</p>
+                <h2>See It In Action</h2>
+                <p>Watch how simple it is to create and use an agent-friendly API</p>
             </div>
 
-            <div class="demo-card">
-                <div class="stats-grid">
-                    <div class="stat">
-                        <span class="stat-number">~20ms</span>
-                        <div class="stat-label">Balance Check</div>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-number">~15ms</span>
-                        <div class="stat-label">Charge User</div>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-number">0</span>
-                        <div class="stat-label">Auth Steps</div>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-number">1</span>
-                        <div class="stat-label">Line of Code</div>
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <h4>Creating Your Service</h4>
+                    <p>One command sets up everything: Stripe products, webhooks, and deployment</p>
+
+                    <div class="terminal">
+                        <div class="terminal-header">
+                            <div class="terminal-dots">
+                                <div class="dot red"></div>
+                                <div class="dot yellow"></div>
+                                <div class="dot green"></div>
+                            </div>
+                        </div>
+                        <div class="terminal-content">
+                            <div><span class="prompt">$</span> <span class="command">npx create-stripeflare</span></div>
+                            <div class="output">🚀 Creating Stripeflare project...</div>
+                            <div class="output">Worker/repo name: my-ai-service</div>
+                            <div class="output">Domain: api.myservice.com</div>
+                            <div class="output">Title: AI Text Generator</div>
+                            <div class="output">Price: 0.10</div>
+                            <div class="output">✅ Created Stripe product</div>
+                            <div class="output">✅ Created webhook</div>
+                            <div class="output">✅ Deployed to Cloudflare</div>
+                            <div class="highlight">🎉 Ready at https://api.myservice.com</div>
+                        </div>
                     </div>
                 </div>
 
-                <a href="/demo" class="btn btn-primary">
-                    <i class="fas fa-external-link-alt"></i>
-                    Try Live Demo
-                </a>
+                <div class="demo-card">
+                    <h4>Using Your Service</h4>
+                    <p>Users get immediate access after payment - no signup required</p>
+
+                    <div class="terminal">
+                        <div class="terminal-header">
+                            <div class="terminal-dots">
+                                <div class="dot red"></div>
+                                <div class="dot yellow"></div>
+                                <div class="dot green"></div>
+                            </div>
+                        </div>
+                        <div class="terminal-content">
+                            <div><span class="prompt">$</span> <span class="command">curl
+                                    api.myservice.com/generate</span></div>
+                            <div class="output">{"paymentLink": "https://buy.stripe.com/xyz"}</div>
+                            <div></div>
+                            <div><span class="prompt">$</span> <span class="comment"># After payment:</span></div>
+                            <div><span class="prompt">$</span> <span class="command">curl api.myservice.com/generate
+                                    \</span></div>
+                            <div><span class="command"> -H "Cookie: access_token=abc123"</span></div>
+                            <div class="highlight">{"result": "AI generated text...", "balance": "$0.90"}</div>
+                            <div></div>
+                            <div><span class="prompt">$</span> <span class="comment"># Subsequent requests just
+                                    work:</span></div>
+                            <div><span class="prompt">$</span> <span class="command">curl api.myservice.com/generate
+                                    \</span></div>
+                            <div><span class="command"> -H "Cookie: access_token=abc123"</span></div>
+                            <div class="highlight">{"result": "More AI content...", "balance": "$0.80"}</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </section>
-
-    <!-- Comparison Table -->
-    <section class="comparison">
-        <div class="section-header">
-            <h2>How It Compares</h2>
-            <p>Stripeflare vs traditional solutions</p>
-        </div>
-
-        <div class="comparison-table">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Stripeflare</th>
-                        <th>Auth0 + Stripe</th>
-                        <th>Traditional Setup</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr class="stripeflare">
-                        <td>Setup Time</td>
-                        <td><i class="fas fa-check check"></i> 1 minute</td>
-                        <td><i class="fas fa-times cross"></i> Hours</td>
-                        <td><i class="fas fa-times cross"></i> Days</td>
-                    </tr>
-                    <tr>
-                        <td>Balance Check Speed</td>
-                        <td><i class="fas fa-check check"></i> ~20ms</td>
-                        <td><i class="fas fa-times cross"></i> ~200ms</td>
-                        <td><i class="fas fa-times cross"></i> ~500ms</td>
-                    </tr>
-                    <tr class="stripeflare">
-                        <td>Auth Required</td>
-                        <td><i class="fas fa-check check"></i> Payment only</td>
-                        <td><i class="fas fa-times cross"></i> Full signup flow</td>
-                        <td><i class="fas fa-times cross"></i> Complex setup</td>
-                    </tr>
-                    <tr>
-                        <td>Edge Computing</td>
-                        <td><i class="fas fa-check check"></i> Native</td>
-                        <td><i class="fas fa-times cross"></i> Adapted</td>
-                        <td><i class="fas fa-times cross"></i> Not optimized</td>
-                    </tr>
-                    <tr class="stripeflare">
-                        <td>Micro-transactions</td>
-                        <td><i class="fas fa-check check"></i> Optimized</td>
-                        <td><i class="fas fa-times cross"></i> Expensive</td>
-                        <td><i class="fas fa-times cross"></i> Slow</td>
-                    </tr>
-                </tbody>
-            </table>
         </div>
     </section>
 
     <!-- CTA Section -->
     <section class="cta-section">
         <div class="cta-content">
-            <h2>Ready to monetize at the speed of light?</h2>
-            <p>Join developers who are building the future of edge monetization with Stripeflare.</p>
+            <h2>Ready to build agent-friendly APIs?</h2>
+            <p>Join developers who are building the future of frictionless monetization</p>
 
-            <div class="cta-buttons">
+            <div>
                 <a href="https://github.com/janwilmake/stripeflare" class="btn btn-primary">
-                    <i class="fab fa-github"></i>
-                    Star on GitHub
+                    <i class="fas fa-rocket"></i>
+                    Start Building Now
                 </a>
-                <a href="https://github.com/janwilmake/stripeflare" class="btn btn-secondary">
-                    <i class="fas fa-book"></i>
-                    Read Docs
+                <a href="/demo" class="btn btn-secondary">
+                    <i class="fas fa-play"></i>
+                    Try Demo
                 </a>
             </div>
         </div>
@@ -802,19 +806,19 @@
     </footer>
 
     <script>
-        function copyToClipboard() {
-            const code = document.getElementById('code-snippet').textContent;
+        function copyCode(button) {
+            const codeBlock = button.parentElement;
+            const code = codeBlock.querySelector('pre').textContent;
             navigator.clipboard.writeText(code).then(() => {
-                const btn = document.querySelector('.copy-btn');
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                btn.style.background = 'var(--success)';
-                btn.style.color = 'white';
+                const originalText = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                button.style.background = 'var(--success)';
+                button.style.color = 'white';
 
                 setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.style.background = 'var(--bg-tertiary)';
-                    btn.style.color = 'var(--text-secondary)';
+                    button.innerHTML = originalText;
+                    button.style.background = 'var(--bg-tertiary)';
+                    button.style.color = 'var(--text-secondary)';
                 }, 2000);
             });
         }
