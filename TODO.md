@@ -17,6 +17,7 @@ Stripeflare v0.0.32 (BREAKING)
 - You can now charge by just passing `X-Price` header to the response!
 - Improved `create-stripeflare` template
 - Security enhancements
+- Improvements to docs and website
 
 NB: If you used stripeflare before, be aware that everything past v0.0.26 resets old data by using new DO naming strategy
 

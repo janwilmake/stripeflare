@@ -222,84 +222,72 @@
                     <span class="info-label">Balance</span>
                     <span id="balance" class="info-value badge badge-primary"><i class="fas fa-wallet"></i></span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Speed</span>
-                    <span id="speed" class="info-value badge badge-success"><i class="fas fa-tachometer-alt"></i></span>
-                </div>
-                <div class="info-row" id="charged-row" style="display: none;">
-                    <span class="info-label">Charged</span>
-                    <span id="charged" class="info-value badge badge-warning"><i class="fas fa-credit-card"></i></span>
-                </div>
+
+
+                <a id="paymentLink" target="_blank" href="#" class="payment-button">
+                    <i class="fab fa-stripe" style="margin-right: 10px;"></i> Pay with Stripe
+                </a>
+
+                <p class="payment-note">After paying, every request will charge $0.01 without limit to showcase speed
+                </p>
+
+                <button id="togglePrivacy" class="toggle-privacy">
+                    <i class="fas fa-eye-slash"></i> <span id="privacy-text">Toggle Privacy</span>
+                </button>
             </div>
-
-            <div id="message-container" class="message-container" style="display: none;">
-                <span class="info-label">Message</span>
-                <p id="message-value" style="margin-top: 5px;"></p>
-            </div>
-
-            <a id="paymentLink" target="_blank" href="#" class="payment-button">
-                <i class="fab fa-stripe" style="margin-right: 10px;"></i> Pay with Stripe
-            </a>
-
-            <p class="payment-note">After paying, every request will charge $0.01 without limit to showcase speed</p>
-
-            <button id="togglePrivacy" class="toggle-privacy">
-                <i class="fas fa-eye-slash"></i> <span id="privacy-text">Toggle Privacy</span>
-            </button>
         </div>
-    </div>
 
-    <script>
-        // Initialize privacy setting from localStorage or default to false
-        let isPrivacyEnabled = JSON.parse(localStorage.getItem('privacyEnabled')) || false;
+        <script>
+            // Initialize privacy setting from localStorage or default to false
+            let isPrivacyEnabled = JSON.parse(localStorage.getItem('privacyEnabled')) || false;
 
-        // Function to update UI based on privacy setting
-        function updatePrivacyUI() {
-            const emailValue = document.getElementById('email-value');
-            const nameValue = document.getElementById('name-value');
-            const privacyIcon = document.querySelector('#togglePrivacy i');
-            const privacyText = document.getElementById('privacy-text');
+            // Function to update UI based on privacy setting
+            function updatePrivacyUI() {
+                const emailValue = document.getElementById('email-value');
+                const nameValue = document.getElementById('name-value');
+                const privacyIcon = document.querySelector('#togglePrivacy i');
+                const privacyText = document.getElementById('privacy-text');
 
-            if (isPrivacyEnabled) {
-                emailValue.classList.add('blurred-value');
-                nameValue.classList.add('blurred-value');
-                privacyIcon.className = 'fas fa-eye';
-                privacyText.textContent = 'Show Information';
-            } else {
-                emailValue.classList.remove('blurred-value');
-                nameValue.classList.remove('blurred-value');
-                privacyIcon.className = 'fas fa-eye-slash';
-                privacyText.textContent = 'Hide Information';
+                if (isPrivacyEnabled) {
+                    emailValue.classList.add('blurred-value');
+                    nameValue.classList.add('blurred-value');
+                    privacyIcon.className = 'fas fa-eye';
+                    privacyText.textContent = 'Show Information';
+                } else {
+                    emailValue.classList.remove('blurred-value');
+                    nameValue.classList.remove('blurred-value');
+                    privacyIcon.className = 'fas fa-eye-slash';
+                    privacyText.textContent = 'Hide Information';
+                }
             }
-        }
 
-        // Toggle privacy button event listener
-        document.getElementById('togglePrivacy').addEventListener('click', function () {
-            isPrivacyEnabled = !isPrivacyEnabled;
-            localStorage.setItem('privacyEnabled', JSON.stringify(isPrivacyEnabled));
-            updatePrivacyUI();
-        });
-
-        // Check for user_data and extract client_reference_id
-        if (window.data) {
-            const { client_reference_id, balance, email, name, speed, charged, message, paymentLink } = window.data;
-            if (client_reference_id) {
-                // Construct the payment link with client_reference_id
-                const paymentUrl = `${paymentLink}?client_reference_id=${client_reference_id}`;
-                document.getElementById('paymentLink').href = paymentUrl;
-                document.getElementById('balance').innerHTML = '<i class="fas fa-wallet"></i> $' + balance / 100;
-                document.getElementById('email-value').innerText = email || "Unavailable";
-                document.getElementById('name-value').innerText = name || "Unavailable";
-                document.getElementById('speed').innerHTML = '<i class="fas fa-tachometer-alt"></i> ' + speed + "ms";
-                document.getElementById('client_reference_id').innerText = client_reference_id.slice(0, 20) + "...";
-
-                // Apply privacy settings
+            // Toggle privacy button event listener
+            document.getElementById('togglePrivacy').addEventListener('click', function () {
+                isPrivacyEnabled = !isPrivacyEnabled;
+                localStorage.setItem('privacyEnabled', JSON.stringify(isPrivacyEnabled));
                 updatePrivacyUI();
-            } else {
-                alert('Error: No client reference ID found');
+            });
+
+            // Check for user_data and extract client_reference_id
+            if (window.data) {
+                const { client_reference_id, balance, email, name, speed, charged, message, paymentLink } = window.data;
+                if (client_reference_id) {
+                    // Construct the payment link with client_reference_id
+                    const paymentUrl = `${paymentLink}?client_reference_id=${client_reference_id}`;
+                    document.getElementById('paymentLink').href = paymentUrl;
+                    document.getElementById('balance').innerHTML = '<i class="fas fa-wallet"></i> $' + balance / 100;
+                    document.getElementById('email-value').innerText = email || "Unavailable";
+                    document.getElementById('name-value').innerText = name || "Unavailable";
+                    document.getElementById('speed').innerHTML = '<i class="fas fa-tachometer-alt"></i> ' + speed + "ms";
+                    document.getElementById('client_reference_id').innerText = client_reference_id.slice(0, 20) + "...";
+
+                    // Apply privacy settings
+                    updatePrivacyUI();
+                } else {
+                    alert('Error: No client reference ID found');
+                }
             }
-        }
-    </script>
+        </script>
 </body>
 
 </html>
