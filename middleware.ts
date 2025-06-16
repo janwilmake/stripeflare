@@ -843,7 +843,9 @@ export function withStripeflare<T extends StripeUser = StripeUser>(
       }
 
       newHeaders.set("x-payment-link", paymentLink);
-      newHeaders.set("x-balance", String(balance));
+      if (!response.headers.get("X-Balance")) {
+        newHeaders.set("X-Balance", String(balance));
+      }
 
       return new Response(response.body, {
         status: response.status,

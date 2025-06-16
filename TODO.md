@@ -1,10 +1,11 @@
 # Fix Stripeflare
 
-- ✅ Check all emails I am getting from stripe and what can be done about this webhook failure stuff
-- ✅ Re-enable webhooks
-- ✅ Add `x-balance` and `x-paymentlink`
-- ✅ Add `x-price` as forced charge so charge function isn't needed per se
-- ✅ Document all of this
+Stripeflare v0.0.26
+
+- Fixed errors occuring when you have several webhooks set up
+- Added standard headers `X-Balance` and `X-Paymentlink`
+- You can now charge by just passing `X-Price`
+-
 
 Then, create a Stripeflare for the images. Then, make a video of that entire process and aim to get it to under 5 minutes.
 
