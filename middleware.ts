@@ -789,8 +789,7 @@ async function handleUserSession<T extends StripeUser>(
   return { user, client, headers };
 }
 
-// FROM HERE
-// https://lmpify.com/httpspastebincon-bthl4d0
+// https://letmeprompt.com/httpspastebincon-bthl4d0
 interface StripeflareContext<T extends StripeUser = StripeUser>
   extends ExecutionContext {
   user: T;
@@ -858,9 +857,9 @@ export function withStripeflare<
 
     // Create enhanced context with user and charge function
     const enhancedCtx: StripeflareContext<TUser> = {
-      passThroughOnException: ctx.passThroughOnException,
+      passThroughOnException: () => ctx.passThroughOnException(),
       props: ctx.props,
-      waitUntil: ctx.waitUntil,
+      waitUntil: (promise: Promise<any>) => ctx.waitUntil(promise),
       user,
       charge,
       client,
