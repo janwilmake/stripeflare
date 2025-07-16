@@ -89,7 +89,6 @@ The following adds DORM durable object to your Cloudflare Bindings, which stripe
 For TOML:
 
 ```toml
-
 name = "stripeflare-example"
 main = "main.ts"
 compatibility_date = "2025-06-06"
@@ -145,7 +144,7 @@ In your static files you can also access these:
 
 - `GET /me` returns `{paymentLink,client_reference_id, balance, name, email, card_fingerprint, verified_email }` which can be useful to show these details fast. Requires cookie!
 - `POST /rotate-token` (to rotate the token, instable, may be removed in future version)
-- `/db/*` (to perform direct queries to your databases) - for DORM integration with outerbase, see DORM Docs
+- `/db/*` To access admin DB panel -see [outerbase](#outerbase)
 
 Besides that, stripeflare standardises and uses the following response headers:
 
@@ -161,6 +160,22 @@ Besides that, stripeflare standardises and uses the following response headers:
 - **Flexible**: Leverages [`?client_reference_id`](https://docs.stripe.com/api/checkout/sessions/object#checkout_session_object-client_reference_id) ensure connection to the user session whilst using any [Stripe Payment Link](https://docs.stripe.com/payment-links).
 - **Extensible**: Hooks into your own DO-based database so you can extend it however you like.
 - **Login by Payment**: Users can access their previous balance from any device as long as they use the same Stripe Payment method (only supports payment methods `card` and `link`, see [ADR](ADR.md))
+
+## Outerbase
+
+Stripeflare exposes an admin panel to easily manage the users.
+
+Login into the aggregate DB:
+
+- URL: https://your-worker.domain.com/db/admin-readonly
+- Username: admin-readonly
+- Password: [your DB_SECRET environment variable]
+
+Individual User Access:
+
+- URL: https://your-worker.domain.com/db/[client_reference_id]
+- Username: user-[client_reference_id]
+- Password: the users [access_token]
 
 ## When can you use this?
 
@@ -181,52 +196,4 @@ Besides that, stripeflare standardises and uses the following response headers:
 
 ## Extending the Schema with Custom Migrations
 
-Stripeflare uses [DORM](https://github.com/janwilmake/dorm) for database management and supports custom migrations to extend the user schema beyond the default fields.
-
-The `users` table must contain these **required columns** (all should be indexed for performance). You can extend the schema by replacing the DORM durable object with one that include additional columns. This also allows doing anything else in your user objects:
-
-See [This Example](template-extended.ts)
-
-### Migration Best Practices
-
-1. **Always include required fields**: Never remove the required columns from your migrations
-2. **Keep required indexes**: The default indexes are essential for performance
-
-### Accessing Extended Data
-
-```typescript
-// Type-safe access to extended fields
-const { user, client } = ctx;
-
-// Read extended data
-const preferences = JSON.parse(user.preferences || "{}");
-
-// Update extended data
-if (client) {
-  await client
-    .exec(
-      "UPDATE users SET subscription_tier = ?, preferences = ? WHERE access_token = ?",
-      "premium",
-      JSON.stringify({ theme: "dark", notifications: true }),
-      user.access_token
-    )
-    .toArray();
-}
-```
-
-### Database Architecture
-
-Stripeflare creates:
-
-- **Individual user databases**: One Durable Object per user (fast charging)
-- **Aggregate database**: Mirrors all user data for admin queries
-- **Automatic mirroring**: Changes sync between user DB and aggregate DB
-
-This architecture ensures lightning-fast user operations while maintaining queryable aggregate data.
-
-### Schema Limitations
-
-- **Required fields**: Cannot be removed or renamed
-- **Primary key**: `access_token` must remain the primary key
-- **Balance type**: Must remain `INTEGER` (cents)
-- **Token rotation**: Custom fields are preserved during token rotation
+Stripeflare uses [DORM](https://github.com/janwilmake/dorm) for database management and supports custom migrations to extend the user schema beyond the default fields. The `users` table must contain these **required columns** (all should be indexed for performance). You can extend the schema by replacing the DORM durable object with one that include additional columns. This also allows doing anything else in your user objects. See [This Example](template-extended.ts)
