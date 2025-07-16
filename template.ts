@@ -15,41 +15,17 @@ interface User extends StripeUser {
   // twitter_handle: string | null;
 }
 
-export const migrations = {
-  // can add any other info here
-  1: [
-    `CREATE TABLE users (
-      access_token TEXT PRIMARY KEY,
-      balance INTEGER DEFAULT 0,
-      name TEXT,
-      email TEXT,
-      verified_email TEXT,
-      verified_user_access_token TEXT,
-      card_fingerprint TEXT,
-      client_reference_id TEXT
-    )`,
-    `CREATE INDEX idx_users_balance ON users(balance)`,
-    `CREATE INDEX idx_users_name ON users(name)`,
-    `CREATE INDEX idx_users_email ON users(email)`,
-    `CREATE INDEX idx_users_verified_email ON users(verified_email)`,
-    `CREATE INDEX idx_users_card_fingerprint ON users(card_fingerprint)`,
-    `CREATE INDEX idx_users_client_reference_id ON users(client_reference_id)`,
-  ],
-};
-
 export default {
   async fetch(
     request: Request,
     env: Env,
-    ctx: ExecutionContext,
+    ctx: ExecutionContext
   ): Promise<Response> {
     const middleware = await stripeBalanceMiddleware<User>(
       request,
       env,
       ctx,
-      migrations,
-      // changing this will link to a fully new db
-      "0.0.10",
+      "0.0.10"
     );
 
     // If middleware returned a response (webhook or db api), return it directly
@@ -62,51 +38,14 @@ export default {
     const { charged, message } = await middleware.charge(1, false);
 
     // We can also directly connect with the DB through dorm client
-    // const client = createClient({
-    //   doNamespace: env.DORM_NAMESPACE,
-    //   ctx,
-    //   migrations,
-    //   mirrorName: "aggregate",
-    //   name: result.session.user.access_token,
-    //   //NB: ensure to specify the same version!
-    //   version: "0.0.10",
-    // });
-
-    // let paidUser = await client
-    //   .exec<User>(
-    //     "SELECT * FROM users WHERE access_token = ?",
-    //     result.session.user.access_token,
-    //   )
-    //   .one()
-    //   .catch(() => null);
-
-    // if (paidUser) {
-    //   const update = client.exec(
-    //     "UPDATE users SET balance = balance - 1 WHERE access_token=?",
-    //     result.session.user.access_token,
-    //   );
-
-    //   await update.toArray();
-    //   const { rowsRead, rowsWritten } = update;
-
-    //   console.log("User has been charged one cent", { rowsRead, rowsWritten });
-
-    //   const updatedUser = await client
-    //     .exec<StripeUser>(
-    //       "SELECT * FROM users WHERE access_token=?",
-    //       result.session.user.access_token,
-    //     )
-    //     .one()
-    //     .catch(() => null);
-    //   if (!updatedUser) {
-    //     return new Response("Couldn't find updated user user", { status: 500 });
-    //   }
-    //   user = updatedUser;
-    // } else {
-    //   console.log(
-    //     "This user could not be found, which means they have not made a payment. Change logic accordingly",
-    //   );
-    // }
+    const client = createClient({
+      doNamespace: env.DORM_NAMESPACE,
+      ctx,
+      configs: [
+        { name: `0.0.10-${middleware.user.access_token}` },
+        { name: `0.0.10-aggregate` },
+      ],
+    });
 
     // Otherwise, inject user data and return HTML
 
@@ -122,7 +61,7 @@ export default {
         charged,
         message,
         payment_link,
-      })};</script></head>`,
+      })};</script></head>`
     );
 
     return new Response(modifiedHtml, {

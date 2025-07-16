@@ -17,7 +17,7 @@ export default {
         ...rest,
         speed,
         paymentLink,
-      })};</script></head>`,
+      })};</script></head>`
     );
 
     return new Response(modifiedHtml, {

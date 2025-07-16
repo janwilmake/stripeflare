@@ -2,7 +2,7 @@ import { ExecutionContext } from "@cloudflare/workers-types";
 import { Stripe } from "stripe";
 import { createClient, DORMClient } from "dormroom";
 import { decryptToken, encryptToken } from "./encrypt-decrypt-js";
-import { DurableObject, env } from "cloudflare:workers";
+import { DurableObject } from "cloudflare:workers";
 import { Queryable, QueryableHandler } from "queryable-object";
 import { Migratable } from "migratable-object";
 // Export DORM for it to be accessible
@@ -58,7 +58,7 @@ export type StripeUser = {
   verified_email: string | null;
 };
 
-type Migrations = { [version: number]: string[] };
+type StripeflareClient = DORMClient<DORM & QueryableHandler>;
 
 export type MiddlewareResult<T extends StripeUser> =
   | {
@@ -69,7 +69,7 @@ export type MiddlewareResult<T extends StripeUser> =
       type: "session";
       user: T;
       headers: { [key: string]: string };
-      client: DORMClient<DORM>;
+      client: StripeflareClient;
       paymentLink: string;
       registered: boolean;
       charge: (
@@ -207,7 +207,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
 
     const middlewareResponse = await client.middleware(request, {
       prefix: "/db/" + nameParam,
-      secret,
+      basicAuth: { username: "admin", password: secret },
     });
 
     if (middlewareResponse) {
@@ -262,7 +262,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
       };
     }
 
-    const { rowsWritten } = allowNegativeBalance
+    const result = allowNegativeBalance
       ? await client.exec(
           "UPDATE users SET balance = balance - ? WHERE access_token = ?",
           amountCent,
@@ -275,7 +275,7 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
           amountCent
         );
 
-    if (rowsWritten === 0) {
+    if (result.rowsWritten === 0) {
       return { charged: false, message: "User balance too low" };
     }
 
@@ -382,13 +382,12 @@ async function handleStripeWebhook(
     });
 
     // check if we already have a user with this details
-    const userFromAccessToken = await aggregateClient
-      .exec<StripeUser>(
-        "SELECT * FROM users WHERE access_token = ?",
-        access_token
-      )
-      .one()
-      .catch(() => null);
+    const userResult: { one: StripeUser } = await aggregateClient.exec(
+      "SELECT * FROM users WHERE access_token = ?",
+      access_token
+    );
+
+    const userFromAccessToken = userResult.one || null;
 
     const doName = getDOName(client_reference_id);
 
@@ -403,20 +402,18 @@ async function handleStripeWebhook(
         ],
       });
 
-      await client
-        .exec(
-          "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
-          amount_total,
-          customer_details.email,
-          customer_details.name || null,
-          access_token
-        )
-        .toArray();
+      await client.exec(
+        "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
+        amount_total,
+        customer_details.email,
+        customer_details.name || null,
+        access_token
+      );
 
       return new Response("Payment processed successfully", { status: 200 });
     }
 
-    // no exisitng user. Check which user we need to insert it into:
+    // no existing user. Check which user we need to insert it into:
     const paymentIntent = await stripe.paymentIntents.retrieve(
       session.payment_intent as string
     );
@@ -433,27 +430,24 @@ async function handleStripeWebhook(
         ? customer_details.email
         : undefined;
 
-    const userFromEmail = verified_email
-      ? (
-          await aggregateClient
-            .exec<StripeUser>(
-              "SELECT access_token FROM users WHERE verified_email = ?",
-              verified_email
-            )
-            .toArray()
-        )[0]
-      : undefined;
+    const userFromEmailResult: { one: { access_token: string } } | null =
+      verified_email
+        ? await aggregateClient.exec(
+            "SELECT access_token FROM users WHERE verified_email = ?",
+            verified_email
+          )
+        : null;
 
-    const userFromFingerprint = card_fingerprint
-      ? (
-          await aggregateClient
-            .exec<StripeUser>(
-              "SELECT access_token FROM users WHERE card_fingerprint = ?",
-              card_fingerprint
-            )
-            .toArray()
-        )[0]
-      : undefined;
+    const userFromEmail = userFromEmailResult?.one;
+
+    const userFromFingerprintResult = card_fingerprint
+      ? await aggregateClient.exec(
+          "SELECT access_token FROM users WHERE card_fingerprint = ?",
+          card_fingerprint
+        )
+      : null;
+
+    const userFromFingerprint = userFromFingerprintResult?.one;
 
     const verified_user_access_token =
       userFromEmail?.access_token || userFromFingerprint?.access_token;
@@ -470,18 +464,16 @@ async function handleStripeWebhook(
         ],
       });
 
-      await client
-        .exec(
-          "INSERT INTO users (access_token, balance, email, verified_email, card_fingerprint, name, client_reference_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          access_token,
-          amount_total,
-          customer_details.email,
-          verified_email || null,
-          card_fingerprint || null,
-          customer_details.name || null,
-          client_reference_id
-        )
-        .toArray();
+      await client.exec(
+        "INSERT INTO users (access_token, balance, email, verified_email, card_fingerprint, name, client_reference_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        access_token,
+        amount_total,
+        customer_details.email,
+        verified_email || null,
+        card_fingerprint || null,
+        customer_details.name || null,
+        client_reference_id
+      );
 
       return new Response("Payment processed successfully", { status: 200 });
     }
@@ -508,13 +500,11 @@ async function handleStripeWebhook(
       ],
     });
 
-    await client
-      .exec(
-        "INSERT INTO users (access_token, verified_user_access_token) VALUES (?, ?)",
-        access_token,
-        verified_user_access_token
-      )
-      .toArray();
+    await client.exec(
+      "INSERT INTO users (access_token, verified_user_access_token) VALUES (?, ?)",
+      access_token,
+      verified_user_access_token
+    );
 
     const verifiedUserClientReferenceId = await getClientReferenceId(
       verified_user_access_token,
@@ -532,15 +522,13 @@ async function handleStripeWebhook(
     });
 
     // Add the balance to the verified user
-    await verifiedUserClient
-      .exec(
-        "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
-        amount_total,
-        customer_details.email,
-        customer_details.name || null,
-        verified_user_access_token
-      )
-      .toArray();
+    await verifiedUserClient.exec(
+      "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
+      amount_total,
+      customer_details.email,
+      customer_details.name || null,
+      verified_user_access_token
+    );
 
     return new Response("Payment processed successfully", { status: 200 });
   }
@@ -599,27 +587,26 @@ async function handleTokenRotation(
 
   try {
     // Copy user data to new access token
-    await newUserClient
-      .exec(
-        `INSERT INTO users (
-          access_token, balance, email, verified_email, 
-          card_fingerprint, name, client_reference_id, verified_user_access_token
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        newAccessToken,
-        user.balance,
-        user.email,
-        user.verified_email,
-        user.card_fingerprint,
-        user.name,
-        newClientReferenceId,
-        null // Clear verified_user_access_token for the new token
-      )
-      .toArray();
+    await newUserClient.exec(
+      `INSERT INTO users (
+        access_token, balance, email, verified_email, 
+        card_fingerprint, name, client_reference_id, verified_user_access_token
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      newAccessToken,
+      user.balance,
+      user.email,
+      user.verified_email,
+      user.card_fingerprint,
+      user.name,
+      newClientReferenceId,
+      null // Clear verified_user_access_token for the new token
+    );
 
     // Delete old user data
-    await client
-      .exec("DELETE FROM users WHERE access_token = ?", user.access_token)
-      .toArray();
+    await client.exec(
+      "DELETE FROM users WHERE access_token = ?",
+      user.access_token
+    );
 
     // Set new cookie
     const url = new URL(request.url);
@@ -645,9 +632,10 @@ async function handleTokenRotation(
   } catch (error) {
     // If something goes wrong, clean up the new token
     try {
-      await newUserClient
-        .exec("DELETE FROM users WHERE access_token = ?", newAccessToken)
-        .toArray();
+      await newUserClient.exec(
+        "DELETE FROM users WHERE access_token = ?",
+        newAccessToken
+      );
     } catch (cleanupError) {
       console.error("Failed to cleanup after rotation error:", cleanupError);
     }
@@ -667,7 +655,7 @@ async function handleUserSession<T extends StripeUser>(
   version: string
 ): Promise<{
   user: T;
-  client: DORMClient<DORM> | undefined;
+  client: StripeflareClient | undefined;
   /** The set-cookie header(s) */
   headers: { [key: string]: string };
 }> {
@@ -681,7 +669,7 @@ async function handleUserSession<T extends StripeUser>(
 
   let accessToken = bearerToken || cookies.access_token;
   let user: T | null = null;
-  let client: DORMClient<DORM> | undefined = undefined;
+  let client: StripeflareClient | undefined = undefined;
 
   // Try to get existing user
   if (accessToken) {
@@ -703,12 +691,14 @@ async function handleUserSession<T extends StripeUser>(
     });
 
     try {
-      user = await client
-        .exec<T>("SELECT * FROM users WHERE access_token = ?", accessToken)
-        .one();
+      const userResult: { one: T } = await client.exec(
+        "SELECT * FROM users WHERE access_token = ?",
+        accessToken
+      );
+      user = userResult.one;
 
-      if (user.verified_user_access_token) {
-        // udpate access_token
+      if (user?.verified_user_access_token) {
+        // update access_token
         accessToken = user.verified_user_access_token;
 
         // we should switch to this one!!!
@@ -727,28 +717,33 @@ async function handleUserSession<T extends StripeUser>(
           ],
         });
 
-        user = await client
-          .exec<T>("SELECT * FROM users WHERE access_token = ?", accessToken)
-          .one();
+        const verifiedUserResult: { one: T } = await client.exec(
+          "SELECT * FROM users WHERE access_token = ?",
+          accessToken
+        );
+        user = verifiedUserResult.one;
       }
 
-      let client_reference_id = await encryptToken(accessToken, env.DB_SECRET);
+      if (user) {
+        let client_reference_id = await encryptToken(
+          accessToken,
+          env.DB_SECRET
+        );
 
-      if (user.client_reference_id !== client_reference_id) {
-        // ensure to overwrite client_reference_id incase we have a new DB_SECRET
-        user.client_reference_id = client_reference_id;
+        if (user.client_reference_id !== client_reference_id) {
+          // ensure to overwrite client_reference_id incase we have a new DB_SECRET
+          user.client_reference_id = client_reference_id;
 
-        await client
-          .exec<T>(
+          await client.exec(
             "UPDATE users SET client_reference_id = ? WHERE access_token = ?",
             client_reference_id,
             accessToken
-          )
-          .toArray();
+          );
+        }
       }
     } catch {
       client = undefined;
-
+      user = null;
       // User not found, will create new one
     }
   }
@@ -787,7 +782,7 @@ async function handleUserSession<T extends StripeUser>(
 interface StripeflareContext<T extends StripeUser = StripeUser>
   extends ExecutionContext {
   user: T;
-  client?: DORMClient<Rpc.DurableObjectBranded>;
+  client?: StripeflareClient;
   registered: boolean;
   paymentLink: string;
   charge: (
@@ -933,24 +928,21 @@ export const chargeUser = async (
     };
   }
 
-  const update = allowNegativeBalance
-    ? client.exec(
+  const result = allowNegativeBalance
+    ? await client.exec(
         "UPDATE users SET balance = balance - ? WHERE access_token = ?",
         amountCent,
         user_access_token
       )
-    : client.exec(
+    : await client.exec(
         "UPDATE users SET balance = balance - ? WHERE access_token = ? and balance >= ?",
         amountCent,
         user_access_token,
         amountCent
       );
 
-  await update.toArray();
-  const { rowsWritten } = update;
-  if (rowsWritten === 0) {
+  if (result.rowsWritten === 0) {
     return { charged: false, message: "User balance too low" };
   }
-
   return { charged: true, message: "Successfully charged" };
 };
