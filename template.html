@@ -228,7 +228,7 @@
                     <i class="fab fa-stripe" style="margin-right: 10px;"></i> Pay with Stripe
                 </a>
 
-                <p class="payment-note">After paying, every request will charge $0.01 without limit to showcase speed
+                <p class="payment-note">After paying, every request will charge $0.01 without limit
                 </p>
 
                 <button id="togglePrivacy" class="toggle-privacy">
@@ -278,7 +278,7 @@
                     document.getElementById('balance').innerHTML = '<i class="fas fa-wallet"></i> $' + balance / 100;
                     document.getElementById('email-value').innerText = email || "Unavailable";
                     document.getElementById('name-value').innerText = name || "Unavailable";
-                    document.getElementById('speed').innerHTML = '<i class="fas fa-tachometer-alt"></i> ' + speed + "ms";
+                    // document.getElementById('speed').innerHTML = '<i class="fas fa-tachometer-alt"></i> ' + speed + "ms";
                     document.getElementById('client_reference_id').innerText = client_reference_id.slice(0, 20) + "...";
 
                     // Apply privacy settings

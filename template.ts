@@ -51,7 +51,7 @@ export default {
 
     const { access_token, verified_user_access_token, ...rest } =
       middleware.user;
-    const payment_link = env.STRIPE_PAYMENT_LINK;
+    const paymentLink = env.STRIPE_PAYMENT_LINK;
     const speed = Date.now() - t;
     const modifiedHtml = template.replace(
       "</head>",
@@ -60,7 +60,7 @@ export default {
         speed,
         charged,
         message,
-        payment_link,
+        paymentLink,
       })};</script></head>`
     );
 

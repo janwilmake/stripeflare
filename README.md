@@ -65,7 +65,7 @@ export default {
     {
       // customMigrations: optional way to overwrite default user table with an extension to your database
       // version: "1" // resets data
-    },
+    }
   ),
 } satisfies ExportedHandler<Env>;
 ```
@@ -137,7 +137,7 @@ const chargeUser = async (
   migrations: any | undefined,
   version: string | undefined,
   amountCent: number,
-  allowNegativeBalance: boolean,
+  allowNegativeBalance: boolean
 ) => Promise<{ charged: boolean; message: string }>;
 ```
 
@@ -229,10 +229,12 @@ const defaultMigrations = {
 
 ### Extending with Custom Migrations
 
-You can extend the schema by providing custom migrations that include additional columns:
+You can extend the schema by replacing the DORM durable object with one that include additional columns. This also allows doing anything else in your user objects:
 
 ```typescript
 import { withStripeflare, StripeUser } from "stripeflare";
+import { Migratable } from "migratable-object";
+import { Queryable } from "queryable-object";
 
 // Extend the StripeUser interface
 interface ExtendedUser extends StripeUser {
@@ -242,11 +244,14 @@ interface ExtendedUser extends StripeUser {
   preferences: string; // JSON string
 }
 
+type Env = {};
+
 // Define custom migrations that include all required fields PLUS your extensions
-const customMigrations = {
-  1: [
-    // Base users table with ALL required fields + your custom fields
-    `CREATE TABLE users (
+@Migratable({
+  migrations: {
+    1: [
+      // Base users table with ALL required fields + your custom fields
+      `CREATE TABLE users (
       access_token TEXT PRIMARY KEY,
       balance INTEGER DEFAULT 0,
       name TEXT,
@@ -262,27 +267,34 @@ const customMigrations = {
       preferences TEXT DEFAULT '{}'
     )`,
 
-    // Required indexes (don't remove these)
-    `CREATE INDEX idx_users_balance ON users(balance)`,
-    `CREATE INDEX idx_users_name ON users(name)`,
-    `CREATE INDEX idx_users_email ON users(email)`,
-    `CREATE INDEX idx_users_verified_email ON users(verified_email)`,
-    `CREATE INDEX idx_users_card_fingerprint ON users(card_fingerprint)`,
-    `CREATE INDEX idx_users_client_reference_id ON users(client_reference_id)`,
+      // Required indexes (don't remove these)
+      `CREATE INDEX idx_users_balance ON users(balance)`,
+      `CREATE INDEX idx_users_name ON users(name)`,
+      `CREATE INDEX idx_users_email ON users(email)`,
+      `CREATE INDEX idx_users_verified_email ON users(verified_email)`,
+      `CREATE INDEX idx_users_card_fingerprint ON users(card_fingerprint)`,
+      `CREATE INDEX idx_users_client_reference_id ON users(client_reference_id)`,
+    ],
 
-    // Your custom indexes
-    `CREATE INDEX idx_users_subscription_tier ON users(subscription_tier)`,
-    `CREATE INDEX idx_users_created_at ON users(created_at)`,
-  ],
-
-  // Future migrations for schema changes
-  2: [
-    `ALTER TABLE users ADD COLUMN api_key TEXT`,
-    `CREATE INDEX idx_users_api_key ON users(api_key)`,
-  ],
-};
-
-type Env = {};
+    // Future migrations for schema changes
+    2: [
+      `ALTER TABLE users ADD COLUMN api_key TEXT`,
+      `CREATE INDEX idx_users_api_key ON users(api_key)`,
+      // Your custom indexes
+      `CREATE INDEX idx_users_subscription_tier ON users(subscription_tier)`,
+      `CREATE INDEX idx_users_created_at ON users(created_at)`,
+    ],
+  },
+})
+@Queryable()
+export class DORM extends DurableObject {
+  sql: SqlStorage;
+  constructor(state: DurableObjectState, env: Env) {
+    super(state, env);
+    this.sql = state.storage.sql;
+    this.env = env;
+  }
+}
 
 export default {
   fetch: withStripeflare<Env, ExtendedUser>(
@@ -297,7 +309,7 @@ export default {
         await client
           .exec(
             "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE access_token = ?",
-            user.access_token,
+            user.access_token
           )
           .toArray();
       }
@@ -305,9 +317,9 @@ export default {
       return new Response(`Hello ${user.name}!`);
     },
     {
-      customMigrations,
-      version: "1", // Increment to reset/migrate data
-    },
+      // Increment to reset/migrate data
+      version: "1",
+    }
   ),
 };
 ```
@@ -333,7 +345,7 @@ if (client) {
       "UPDATE users SET subscription_tier = ?, preferences = ? WHERE access_token = ?",
       "premium",
       JSON.stringify({ theme: "dark", notifications: true }),
-      user.access_token,
+      user.access_token
     )
     .toArray();
 }

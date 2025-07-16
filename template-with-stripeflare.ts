@@ -7,15 +7,12 @@ import template from "./template.html";
 interface MyUser extends StripeUser {}
 export default {
   fetch: withStripeflare<MyUser>(async (request, env, ctx) => {
-    const t = Date.now();
     const { access_token, verified_user_access_token, ...rest } = ctx.user;
     const paymentLink = env.STRIPE_PAYMENT_LINK;
-    const speed = Date.now() - t;
     const modifiedHtml = template.replace(
       "</head>",
       `<script>window.data = ${JSON.stringify({
         ...rest,
-        speed,
         paymentLink,
       })};</script></head>`
     );

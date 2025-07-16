@@ -31,7 +31,14 @@ export { createClient };
   },
 })
 @Queryable()
-export class DORM extends DurableObject {}
+export class DORM extends DurableObject {
+  sql: SqlStorage;
+  constructor(state: DurableObjectState, env: Env) {
+    super(state, env);
+    this.sql = state.storage.sql;
+    this.env = env;
+  }
+}
 
 const AGGREGATE_NAME = "admin-readonly";
 const DO_PREFIX = "user-";
