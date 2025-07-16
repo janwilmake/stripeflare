@@ -214,7 +214,10 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
 
     const middlewareResponse = await client.middleware(request, {
       prefix: "/db/" + nameParam,
-      basicAuth: { username: "admin", password: secret },
+      basicAuth: {
+        username: doName,
+        password: secret,
+      },
     });
 
     if (middlewareResponse) {
