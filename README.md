@@ -1,6 +1,6 @@
 # Stripeflare - Virtual Wallet System
 
-[![janwilmake/stripeflare context](https://badge.forgithub.com/janwilmake/stripeflare)](https://uithub.com/janwilmake/stripeflare) [![](https://badge.xymake.com/janwilmake/status/1924404433317675347)](https://xymake.com/janwilmake/status/1924404433317675347) [![](https://b.letmeprompt.com/Quickstart)](https://letmeprompt.com?q=https://uithub.com/janwilmake/stripeflare/tree/main/README.md)
+[![janwilmake/stripeflare context](https://badge.forgithub.com/janwilmake/stripeflare)](https://uithub.com/janwilmake/stripeflare) [![](https://badge.xymake.com/janwilmake/status/1924404433317675347)](https://xymake.com/janwilmake/status/1924404433317675347) [![](https://b.lmpify.com/Quickstart)](https://letmeprompt.com?q=https://uithub.com/janwilmake/stripeflare/tree/main/README.md)
 
 Stripeflare is middleware that adds Stripe Payments to a Cloudflare Worker and have users keep track of a balance in your own database, without requiring third-party authentication (Just Stripe Payment)! Let me know your thoughts in [this thread](https://x.com/janwilmake/status/1924404433317675347) and check [the demo](https://x.com/janwilmake/status/1924766605143142683)
 
