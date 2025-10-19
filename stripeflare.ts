@@ -1,12 +1,11 @@
 import { ExecutionContext } from "@cloudflare/workers-types";
 import { Stripe } from "stripe";
-import { createClient, DORMClient } from "dormroom";
+import { getMultiStub } from "multistub";
 import { decryptToken, encryptToken } from "./encrypt-decrypt-js";
 import { DurableObject } from "cloudflare:workers";
 import { Queryable, QueryableHandler } from "queryable-object";
 import { Migratable } from "migratable-object";
-// Export DORM for it to be accessible
-export { createClient };
+import { studioMiddleware } from "queryable-object";
 
 @Migratable({
   migrations: {
@@ -65,7 +64,7 @@ export type StripeUser = {
   verified_email: string | null;
 };
 
-type StripeflareClient = DORMClient<DORM & QueryableHandler>;
+type StripeflareClient = DurableObjectStub<DORM & QueryableHandler>;
 
 export type MiddlewareResult<T extends StripeUser> =
   | {
@@ -201,27 +200,23 @@ export async function stripeBalanceMiddleware<T extends StripeUser>(
       secret = await decryptToken(nameParam, env.DB_SECRET);
     }
 
-    const client = createClient({
-      doNamespace: env.DORM_NAMESPACE,
-      ctx,
-      configs: [
+    const client = getMultiStub(
+      env.DORM_NAMESPACE,
+      [
         { name: `${version}-${doName}` },
         nameParam === AGGREGATE_NAME
           ? { name: `${version}-${AGGREGATE_NAME}` }
           : undefined,
       ],
+      ctx
+    );
+
+    const studioResponse = await studioMiddleware(request, client.raw, {
+      basicAuth: { username: "admin", password: env.DB_SECRET },
     });
 
-    const middlewareResponse = await client.middleware(request, {
-      prefix: "/db/" + nameParam,
-      basicAuth: {
-        username: doName,
-        password: secret,
-      },
-    });
-
-    if (middlewareResponse) {
-      return { type: "response", response: middlewareResponse };
+    if (studioResponse) {
+      return { type: "response", response: studioResponse };
     }
   }
 
@@ -320,7 +315,7 @@ async function handleStripeWebhook(
   const rawBodyString = new TextDecoder().decode(rawBody);
 
   const stripe = new Stripe(env.STRIPE_SECRET, {
-    apiVersion: "2025-03-31.basil",
+    apiVersion: "2025-09-30.clover",
   });
 
   const stripeSignature = request.headers.get("stripe-signature");
@@ -344,8 +339,8 @@ async function handleStripeWebhook(
   }
 
   if (event.type === "checkout.session.completed") {
-    console.log("CHECKOUT COMPLETED");
     const session = event.data.object;
+    console.log("CHECKOUT COMPLETED", session);
 
     if (session.payment_status !== "paid" || !session.amount_total) {
       return new Response("Payment not completed", { status: 400 });
@@ -384,46 +379,45 @@ async function handleStripeWebhook(
         }
       );
     }
+    const doName = getDOName(client_reference_id);
 
-    const aggregateClient = createClient({
-      doNamespace: env.DORM_NAMESPACE,
-      ctx,
-      configs: [{ name: `${version}-${AGGREGATE_NAME}` }],
-    });
+    const aggregateClient = getMultiStub(
+      env.DORM_NAMESPACE,
+      [{ name: `${version}-${AGGREGATE_NAME}` }],
+      ctx
+    );
+
+    const client = getMultiStub(
+      env.DORM_NAMESPACE,
+      [
+        { name: `${version}-${doName}` },
+        { name: `${version}-${AGGREGATE_NAME}` },
+      ],
+      ctx
+    );
 
     // check if we already have a user with this details
-    const userResult: { one: StripeUser } = await aggregateClient.exec(
+    const userResult: any = await client.exec(
       "SELECT * FROM users WHERE access_token = ?",
       access_token
     );
 
-    const userFromAccessToken = userResult.one || null;
-
-    const doName = getDOName(client_reference_id);
+    const userFromAccessToken = (userResult.array?.[0] as StripeUser) || null;
 
     if (userFromAccessToken) {
-      // existing user found at this access_token, just add balance
-      const client = createClient({
-        doNamespace: env.DORM_NAMESPACE,
-        ctx,
-        configs: [
-          { name: `${version}-${doName}` },
-          { name: `${version}-${AGGREGATE_NAME}` },
-        ],
-      });
-
-      await client.exec(
+      const result = await client.exec(
         "UPDATE users SET balance = balance + ?, email = ?, name = ? WHERE access_token = ?",
         amount_total,
         customer_details.email,
         customer_details.name || null,
         access_token
       );
-
+      console.log("Payment processed successfully", { result });
       return new Response("Payment processed successfully", { status: 200 });
     }
 
     // no existing user. Check which user we need to insert it into:
+
     const paymentIntent = await stripe.paymentIntents.retrieve(
       session.payment_intent as string
     );
@@ -442,7 +436,7 @@ async function handleStripeWebhook(
 
     const userFromEmailResult: { one: { access_token: string } } | null =
       verified_email
-        ? await aggregateClient.exec(
+        ? await client.exec(
             "SELECT access_token FROM users WHERE verified_email = ?",
             verified_email
           )
@@ -464,15 +458,6 @@ async function handleStripeWebhook(
 
     if (!verified_user_access_token) {
       // user did not exist and there was no alternate access token found. Let's create the user under the provided access token!
-
-      const client = createClient({
-        doNamespace: env.DORM_NAMESPACE,
-        ctx,
-        configs: [
-          { name: `${version}-${doName}` },
-          { name: `${version}-${AGGREGATE_NAME}` },
-        ],
-      });
 
       await client.exec(
         "INSERT INTO users (access_token, balance, email, verified_email, card_fingerprint, name, client_reference_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -501,15 +486,6 @@ async function handleStripeWebhook(
     // We should set `verified_user_access_token` on this user, and add the balance to the alternate user.
     // The access_token of will be switched to the verified_user_access_token at a later point
 
-    const client = createClient({
-      doNamespace: env.DORM_NAMESPACE,
-      ctx,
-      configs: [
-        { name: `${version}-${doName}` },
-        { name: `${version}-${AGGREGATE_NAME}` },
-      ],
-    });
-
     await client.exec(
       "INSERT INTO users (access_token, verified_user_access_token) VALUES (?, ?)",
       access_token,
@@ -522,14 +498,14 @@ async function handleStripeWebhook(
     );
     const verifiedUserDOName = getDOName(verifiedUserClientReferenceId);
 
-    const verifiedUserClient = createClient({
-      doNamespace: env.DORM_NAMESPACE,
-      ctx,
-      configs: [
+    const verifiedUserClient = getMultiStub(
+      env.DORM_NAMESPACE,
+      [
         { name: `${version}-${verifiedUserDOName}` },
         { name: `${version}-${AGGREGATE_NAME}` },
       ],
-    });
+      ctx
+    );
 
     // Add the balance to the verified user
     await verifiedUserClient.exec(
@@ -586,14 +562,14 @@ async function handleTokenRotation(
   const newDOName = getDOName(newClientReferenceId);
 
   // Create new user client
-  const newUserClient = createClient({
-    doNamespace: env.DORM_NAMESPACE,
-    ctx,
-    configs: [
+  const newUserClient = getMultiStub(
+    env.DORM_NAMESPACE,
+    [
       { name: `${version}-${newDOName}` },
       { name: `${version}-${AGGREGATE_NAME}` },
     ],
-  });
+    ctx
+  );
 
   try {
     // Copy user data to new access token
@@ -691,21 +667,21 @@ async function handleUserSession<T extends StripeUser>(
 
     // NB: this takes some ms for cold starts because a global lookup is done and new db is created for the clientReferenceId, and happens for every user. Therefore there will be tons of tiny DOs without data, which we should clean up later.
 
-    client = createClient({
-      doNamespace: env.DORM_NAMESPACE,
-      ctx,
-      configs: [
+    client = getMultiStub(
+      env.DORM_NAMESPACE,
+      [
         { name: `${version}-${doName}` },
         { name: `${version}-${AGGREGATE_NAME}` },
       ],
-    });
+      ctx
+    );
 
     try {
-      const userResult: { one: T } = await client.exec(
+      const userResult: { array: T[] } = await client.exec(
         "SELECT * FROM users WHERE access_token = ?",
         accessToken
       );
-      user = userResult.one;
+      user = userResult.array?.[0];
 
       if (user?.verified_user_access_token) {
         // update access_token
@@ -718,14 +694,14 @@ async function handleUserSession<T extends StripeUser>(
         );
         const verifiedDOName = getDOName(verifiedClientReferenceId);
 
-        client = createClient({
-          doNamespace: env.DORM_NAMESPACE,
-          ctx,
-          configs: [
+        client = getMultiStub(
+          env.DORM_NAMESPACE,
+          [
             { name: `${version}-${verifiedDOName}` },
             { name: `${version}-${AGGREGATE_NAME}` },
           ],
-        });
+          ctx
+        );
 
         const verifiedUserResult: { one: T } = await client.exec(
           "SELECT * FROM users WHERE access_token = ?",
@@ -922,14 +898,14 @@ export const chargeUser = async (
   );
   const doName = getDOName(clientReferenceId);
 
-  const client = createClient({
-    doNamespace: env.DORM_NAMESPACE,
-    ctx,
-    configs: [
+  const client = getMultiStub(
+    env.DORM_NAMESPACE,
+    [
       { name: `${version}-${doName}` },
       { name: `${version}-${AGGREGATE_NAME}` },
     ],
-  });
+    ctx
+  );
 
   if (!client || !user_access_token) {
     return {
